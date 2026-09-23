@@ -494,31 +494,42 @@ class Engine(val state: SmivState = SmivState()) {
     }
 
     /**
-     * Enter on the command line after `=`:
-     * - `=replacement` replaces every match of the last search.
-     * - `=search replacement` steps through the literal matches: it jumps to the first
-     *   one from the caret, Enter replaces one match and `n` / `N` skip one.
+     * Enter on the command line after `=`. A single `=` steps through the matches
+     * (Enter replaces one, `n` / `N` skip one); a double `==` replaces them all at once.
+     * - `=replacement` / `==replacement` use the last search (literal or regex).
+     * - `=search replacement` / `==search replacement` use a literal `search`.
+     * - `=` alone replaces the current match, `==` alone every match of the current rule.
      */
     private fun commitReplaceRule(input: String, view: TextView, clipboard: () -> String?): List<Effect> {
-        if (input.isBlank()) return run(Command(Action.APPLY_REPLACE_RULE, sequence = "="), view, clipboard)
+        val replaceEverything = input.startsWith(CommandLineKind.REPLACE_RULE.prefix)
+        val body = if (replaceEverything) input.substring(1) else input
 
-        val parts = Search.parseReplaceRuleParts(input.trim()) ?: return listOf(Effect.Message("invalid replace rule"))
-        if (parts.size == 2) {
-            if (parts[0].isEmpty()) return listOf(Effect.Message("invalid replace rule"))
-            state.replaceRule = ReplaceRule(parts[0], parts[1], regex = false)
-            state.lastCommand = Command(Action.APPLY_REPLACE_RULE, sequence = "=")
-            // Old matches must not stay active for the new rule when it finds nothing.
-            state.searchVisible = false
-            val effects = search(parts[0], view, forward = true, regex = false, includeCaret = true)
-            if (!state.searchVisible) return listOf(Effect.Highlight(emptyList())) + effects
-            return effects + Effect.Message("Enter replaces, n/N skips")
+        if (body.isBlank()) {
+            if (!replaceEverything) return run(Command(Action.APPLY_REPLACE_RULE, sequence = "="), view, clipboard)
+            return replaceAll(state.replaceRule ?: return listOf(Effect.Message("no replace rule")), view)
         }
 
-        val last = state.lastSearch ?: return listOf(Effect.Message("no previous search"))
-        val rule = ReplaceRule(last.pattern, parts[0], last.regex)
+        val parts = Search.parseReplaceRuleParts(body.trim()) ?: return listOf(Effect.Message("invalid replace rule"))
+        val rule = if (parts.size == 2) {
+            if (parts[0].isEmpty()) return listOf(Effect.Message("invalid replace rule"))
+            ReplaceRule(parts[0], parts[1], regex = false)
+        } else {
+            val last = state.lastSearch ?: return listOf(Effect.Message("no previous search"))
+            ReplaceRule(last.pattern, parts[0], last.regex)
+        }
+
         state.replaceRule = rule
         state.lastCommand = Command(Action.APPLY_REPLACE_RULE, sequence = "=")
-        return replaceAll(rule, view)
+        return if (replaceEverything) replaceAll(rule, view) else startStepping(rule, view)
+    }
+
+    /** Jump to the first match of [rule] from the caret and highlight all; Enter then replaces one at a time. */
+    private fun startStepping(rule: ReplaceRule, view: TextView): List<Effect> {
+        // Old matches must not stay active for the new rule when it finds nothing.
+        state.searchVisible = false
+        val effects = search(rule.search, view, forward = true, regex = rule.regex, includeCaret = true)
+        if (!state.searchVisible) return listOf(Effect.Highlight(emptyList())) + effects
+        return effects + Effect.Message("Enter replaces, n/N skips")
     }
 
     private fun replaceAll(rule: ReplaceRule, view: TextView): List<Effect> {

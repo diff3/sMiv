@@ -56,9 +56,12 @@ selecting text, ...) work as usual.
 - `/text` forward, `\text` backward, `,pattern` regex (shown as `~`), then `Enter`.
 - `n` / `N` next / previous match from the caret. Matches are highlighted until `Esc`.
 - `Backspace` edits the command line, `Esc` cancels it.
-- `=replacement` replaces every match of the last search. Regex rules understand `$1`, `$&`, `$<name>`.
-- `=search replacement` steps through the matches of `search` (`'a b'` quotes spaces): `Enter` or `.` replaces
-  the match at the caret and moves to the next, `n` / `N` skip one, `Esc` stops.
+- `=replacement` steps through the matches of the last search (literal or regex): `Enter` or `.` replaces the
+  match at the caret and moves to the next, `n` / `N` skip one, `Esc` stops.
+- `==replacement` replaces every match of the last search at once.
+- `=search replacement` / `==search replacement` do the same for a literal `search` (`'a b'` quotes spaces).
+- Regex rules understand `$1`, `$&`, `$<name>`. A replacement starting with `=` is written in quotes: `='=x'`.
+- `=` alone replaces the current match, `==` alone every match of the current rule. `u` undoes a full replace in one step.
 
 ## Text objects
 

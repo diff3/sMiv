@@ -557,7 +557,7 @@ class EngineTest {
     @Test
     fun `replacing every match turns Enter back to normal`() {
         run("|foo x foo", "/foo\n")
-        val result = run("foo x |foo", "=bar\n")
+        val result = run("foo x |foo", "==bar\n")
         assertEquals("bar x bar", result.text.replace("|", ""))
         assertEquals(listOf("replaced 2 matches"), result.messages)
         assertEquals(Effect.Highlight(emptyList()), result.highlight)
@@ -565,15 +565,47 @@ class EngineTest {
     }
 
     @Test
-    fun `equals with one part replaces the last search`() {
+    fun `equals with one part steps through the last search`() {
+        run("|a.b x a.b", "/a.b\n")
+        val start = run("|a.b x a.b", "=X\n")
+        assertEquals("|a.b x a.b", start.text)
+        assertEquals(listOf("Enter replaces, n/N skips"), start.messages)
+        assertEquals("X x |a.b", run("|a.b x a.b", "\n").text)
+    }
+
+    @Test
+    fun `double equals replaces every match of the last search`() {
         run("|a.b a.b", "/a.b\n")
-        assertEquals("X X", run("a.b |a.b", "=X\n").text.replace("|", ""))
+        val result = run("a.b |a.b", "==X\n")
+        assertEquals("X X", result.text.replace("|", ""))
+        assertEquals(listOf("replaced 2 matches"), result.messages)
+    }
+
+    @Test
+    fun `double equals with two parts replaces every literal match`() {
+        assertEquals("bar x bar", run("|foo x foo", "==foo bar\n").text.replace("|", ""))
+    }
+
+    @Test
+    fun `double equals alone replaces every match of the current rule`() {
+        assertEquals(listOf("no replace rule"), run("|a", "==\n").messages)
+        run("|foo foo", "=foo X\n")
+        assertEquals("X X", run("|foo foo", "==\n").text.replace("|", ""))
     }
 
     @Test
     fun `regex replace expands groups`() {
         run("|ann@x bo@y", ",(\\w+)@(\\w+)\n")
-        assertEquals("x:ann y:bo", run("|ann@x bo@y", "=$2:$1\n").text.replace("|", ""))
+        assertEquals("x:ann y:bo", run("|ann@x bo@y", "==$2:$1\n").text.replace("|", ""))
+    }
+
+    @Test
+    fun `regex rules can be stepped through`() {
+        run("|a1 b2 c3", ",([a-z])(\\d)\n")
+        run("|a1 b2 c3", "=$2$1\n")
+        assertEquals("1a |b2 c3", run("|a1 b2 c3", "\n").text)
+        assertEquals("1a b2 |c3", run("1a |b2 c3", "n").text)
+        assertEquals("1a b2 |3c", run("1a b2 |c3", "\n").text)
     }
 
     @Test
