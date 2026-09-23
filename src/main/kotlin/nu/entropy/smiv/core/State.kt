@@ -31,6 +31,9 @@ class SmivState {
     /** Last `f` / `F` (character, forward) for `;`. */
     var lastFind: Pair<Char, Boolean>? = null
 
+    /** `n` / `N` repeat the last `f` / `F` when it came after the last search. */
+    var nRepeatsFind = false
+
     /** Registers 0..8. Register 9 is the system clipboard itself, see [Engine]. */
     val registers: Array<Register> = Array(CLIPBOARD_REGISTER) { Register() }
 

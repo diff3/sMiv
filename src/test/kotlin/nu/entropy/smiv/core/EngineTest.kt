@@ -816,6 +816,24 @@ class EngineTest {
     }
 
     @Test
+    fun `after f, n and N go right and left to the same character`() {
+        run("|a,b,c,d", "f,")
+        assertEquals("a,b|,c,d", run("a|,b,c,d", "n").text)
+        assertEquals("a|,b,c,d", run("a,b|,c,d", "N").text)
+        assertEquals("a,b,c|,d", run("a,b,c,|d", "N").text)
+    }
+
+    @Test
+    fun `a search after f makes n and N follow the search again`() {
+        run("|x,y x,y", "f,")
+        run("|x,y x,y", "/x\n")
+        assertEquals("x,y |x,y", run("|x,y x,y", "n").text)
+        // A new f switches n back to the character.
+        run("|x,y x,y", "f,")
+        assertEquals("x,y x|,y", run("x|,y x,y", "n").text)
+    }
+
+    @Test
     fun `f takes any character even when it is remapped`() {
         engine.layout = KeyLayout(mapOf("LEFT" to 'h'))
         assertEquals("a|h", run("|ah", "fh").text)

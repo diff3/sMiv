@@ -264,8 +264,12 @@ class Engine(val state: SmivState = SmivState()) {
             Action.SEARCH_REGEX -> typedSearch(command.text.orEmpty(), view, forward = true, regex = true)
             Action.SEARCH_WORD_FORWARD -> searchWord(view, forward = true)
             Action.SEARCH_WORD_BACKWARD -> searchWord(view, forward = false)
-            Action.SEARCH_NEXT -> searchAgain(view, forward = true)
-            Action.SEARCH_PREVIOUS -> searchAgain(view, forward = false)
+            Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS -> {
+                val forward = command.action == Action.SEARCH_NEXT
+                val find = state.lastFind
+                // After `f` / `F`, `n` goes right and `N` left to the same character on the line.
+                if (state.nRepeatsFind && find != null) findChar(view, find.first, forward, 1) else searchAgain(view, forward)
+            }
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
             Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
             Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND ->
@@ -275,6 +279,7 @@ class Engine(val state: SmivState = SmivState()) {
             Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD -> {
                 val char = command.char ?: return emptyList()
                 state.lastFind = char to (command.action == Action.FIND_CHAR)
+                state.nRepeatsFind = true
                 findChar(view, char, command.action == Action.FIND_CHAR, count)
             }
             Action.REPEAT_FIND -> state.lastFind?.let { (char, forward) -> findChar(view, char, forward, count) }.orEmpty()
@@ -509,6 +514,7 @@ class Engine(val state: SmivState = SmivState()) {
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
 
         state.lastSearch = query
+        state.nRepeatsFind = false
         val firstAfter = if (includeCaret) view.caret else view.caret + 1
         return showNearest(matches, view, forward, firstAfter)
     }

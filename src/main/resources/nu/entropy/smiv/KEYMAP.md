@@ -22,7 +22,8 @@ selecting text, ...) work as usual.
 - `%` matching bracket or quote.
 - `-` / `_` first / last line inside the surrounding `()`, `[]` or `{}` block. `5-` / `5_` go 50 % into the block
   from the top / bottom (`1`–`9` for 10–90 %; two digits such as `15-` give that percentage).
-- `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats.
+- `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats. `n` / `N` go to the
+  next / previous one until the next search.
 - `z` centres the line in the view.
 - `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `15m` 15 %, `G` document end, `[n]G` n lines from the bottom.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
