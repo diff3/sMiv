@@ -806,21 +806,31 @@ class EngineTest {
     // ---- find character ----
 
     @Test
-    fun `f and F find characters on the line and semicolon repeats`() {
+    fun `f and F find characters and semicolon repeats`() {
         assertEquals("a|,b,c", run("|a,b,c", "f,").text)
         assertEquals("a,b|,c", run("|a,b,c", "2f,").text)
         assertEquals("a,b|,c", run("a|,b,c", ";").text)
         assertEquals("a|,b,c", run("a,b,|c", "2F,").text)
         assertEquals("a b| c", run("|a b c", "2f ").text)
-        assertEquals("|abc\nx", run("|abc\nx", "fx").text)
     }
 
     @Test
-    fun `after f, n and N go right and left to the same character`() {
+    fun `f searches the whole document and wraps around`() {
+        assertEquals("abc\n|x", run("|abc\nx", "fx").text)
+        assertEquals("|x\nabc", run("x\nab|c", "Fx").text)
+        val wrapped = run("a,b|,c", "2f,")
+        assertEquals("a|,b,c", wrapped.text)
+        assertEquals(listOf("search wrapped"), wrapped.messages)
+        assertEquals(listOf("not found: q"), run("|abc", "fq").messages)
+    }
+
+    @Test
+    fun `after f, n and N go to the next and previous same character`() {
         run("|a,b,c,d", "f,")
         assertEquals("a,b|,c,d", run("a|,b,c,d", "n").text)
         assertEquals("a|,b,c,d", run("a,b|,c,d", "N").text)
         assertEquals("a,b,c|,d", run("a,b,c,|d", "N").text)
+        assertEquals("a,b\n|,c", run("a|,b\n,c", "n").text)
     }
 
     @Test

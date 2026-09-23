@@ -137,10 +137,18 @@ object TextOps {
         return minOf(end, start + Math.round((end - start) * percent / 100.0).toInt())
     }
 
-    /** `f` / `F`: the [count]th [char] after (or before) [offset] on the same line. */
-    fun findCharOnLine(text: CharSequence, offset: Int, char: Char, forward: Boolean, count: Int): Int? {
-        val range = if (forward) (offset + 1) until lineEnd(text, offset) else (offset - 1) downTo lineStart(text, offset)
-        return range.filter { text[it] == char }.getOrNull(count - 1)
+    /**
+     * `f` / `F`: the [count]th [char] after (or before) [offset] anywhere in the text,
+     * wrapping around at the end like a search. Returns the offset and whether it wrapped.
+     */
+    fun findChar(text: CharSequence, offset: Int, char: Char, forward: Boolean, count: Int): Pair<Int, Boolean>? {
+        val all = text.indices.filter { text[it] == char && it != offset }
+        if (all.isEmpty()) return null
+        // Occurrences in search order: after the caret first, then the wrapped-around ones.
+        val (ahead, behind) = if (forward) all.partition { it > offset } else all.reversed().partition { it < offset }
+        val ordered = ahead + behind
+        val index = (count - 1) % ordered.size
+        return ordered[index] to (index >= ahead.size || count > ordered.size)
     }
 
     fun toggleCase(value: CharSequence): String = buildString(value.length) {

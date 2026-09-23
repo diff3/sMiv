@@ -267,7 +267,7 @@ class Engine(val state: SmivState = SmivState()) {
             Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS -> {
                 val forward = command.action == Action.SEARCH_NEXT
                 val find = state.lastFind
-                // After `f` / `F`, `n` goes right and `N` left to the same character on the line.
+                // After `f` / `F`, `n` / `N` go to the next / previous same character.
                 if (state.nRepeatsFind && find != null) findChar(view, find.first, forward, 1) else searchAgain(view, forward)
             }
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
@@ -695,9 +695,11 @@ class Engine(val state: SmivState = SmivState()) {
         return deleteRange(selectionStart(view), selectionEnd(view), view.text)
     }
 
-    /** `f` / `F` / `;`: jump to the [count]th [char] on the line, if there is one. */
+    /** `f` / `F` / `;` / `n` / `N`: jump to the [count]th [char] in the document, wrapping around. */
     private fun findChar(view: TextView, char: Char, forward: Boolean, count: Int): List<Effect> {
-        val target = TextOps.findCharOnLine(view.text, view.caret, char, forward, count) ?: return emptyList()
-        return listOf(Effect.MoveCaret(target))
+        val (target, wrapped) = TextOps.findChar(view.text, view.caret, char, forward, count)
+            ?: return listOf(Effect.Message("not found: $char"))
+        val move = Effect.MoveCaret(target)
+        return if (wrapped) listOf(move, Effect.Message("search wrapped")) else listOf(move)
     }
 }
