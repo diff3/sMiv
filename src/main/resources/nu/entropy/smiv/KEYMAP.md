@@ -6,7 +6,7 @@ selecting text, ...) work as usual.
 
 ## Modes
 
-- `ESC` enters `NAV`. `i` or `Space` enters `INSERT`.
+- `ESC` enters `NAV`. `i` enters `INSERT` after the character under the caret, `Space` before it.
 - `I` goes to the line start and `k` to the line end, then `INSERT`.
 - `Enter` in `NAV` works as usual, except that it cancels a half-typed command such as `5`, commits the
   search / replace command line, and applies an active replace rule to the current match.
@@ -21,10 +21,10 @@ selecting text, ...) work as usual.
 - `q` start of the previous word, `e` end of the next word, `Q` end of the previous word, `E` start of the next word.
 - `%` matching bracket or quote.
 - `-` / `_` first / last line inside the surrounding `()`, `[]` or `{}` block. `5-` / `5_` go 50 % into the block
-  from the top / bottom (`1`–`9` for 10–90 %).
+  from the top / bottom (`1`–`9` for 10–90 %; two digits such as `15-` give that percentage).
 - `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats.
 - `z` centres the line in the view.
-- `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `G` document end, `[n]G` n lines from the bottom.
+- `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `15m` 15 %, `G` document end, `[n]G` n lines from the bottom.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.
 - `Alt+Z` sets an anchor, `Alt+X` jumps to it and then toggles between the anchor and where you jumped from.

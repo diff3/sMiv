@@ -86,6 +86,19 @@ class EngineTest {
     // ---- modes ----
 
     @Test
+    fun `i enters INSERT after the character, space before it`() {
+        assertEquals("a|bc", run("|abc", "i").text)
+        assertEquals(Mode.INSERT, engine.state.mode)
+        engine.escape()
+        assertEquals("abc|\nx", run("abc|\nx", "i").text)
+        engine.escape()
+        assertEquals("|\nx", run("|\nx", "i").text)
+        engine.escape()
+        assertEquals("|abc", run("|abc", " ").text)
+        assertEquals(Mode.INSERT, engine.state.mode)
+    }
+
+    @Test
     fun `i and space enter INSERT, escape returns to NAV`() {
         run("|abc", "i")
         assertEquals(Mode.INSERT, engine.state.mode)
@@ -861,5 +874,7 @@ class EngineTest {
         assertEquals(at("l4"), run(block.replace("l1", "|l1"), "3_").text)
         assertEquals(at("l1"), run(block.replace("l5", "|l5"), "-").text)
         assertEquals(at("l5"), run(block.replace("l1", "|l1"), "9-").text)
+        assertEquals(at("l2"), run(block.replace("l1", "|l1"), "25-").text)
+        assertEquals(at("l4"), run(block.replace("l1", "|l1"), "25_").text)
     }
 }

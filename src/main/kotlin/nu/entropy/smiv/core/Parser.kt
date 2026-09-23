@@ -28,10 +28,10 @@ sealed interface ParseResult {
  *
  * Grammar:
  * - `[count]key`, `r<char>`, `[count]f<char>`, `[count]F<char>`
- * - `-` / `_` and `[1-9]-` / `[1-9]_` (10–90 % into the block from the top / bottom)
+ * - `-` / `_`, `[1-9]-` / `[1-9]_` (10–90 %) and `[10-99]-` / `[10-99]_` (that %) into the block
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
  * - `[register]p`, `[register]P`, `v`, `register v`
- * - `g`, `[line]g`, `m`, `[1-9]m`, `G`, `[n]G`
+ * - `g`, `[line]g`, `m`, `[1-9]m` (10–90 %), `[10-99]m` (that %), `G`, `[n]G`
  * - text objects: `!y`, `"x`, `(p`, `"Y`, `(X` or with a register `" 3y`
  */
 object Parser {
@@ -63,8 +63,12 @@ object Parser {
         val key = rest[0]
         val number = digits.ifEmpty { null }?.let(::parseNumber)
         val register = if (digits.length == 1) digits[0] - '0' else null
-        // `3m`, `5-`: a single digit 1–9 meaning 10–90 %.
-        val percentDigit = register?.takeIf { it in 1..9 }
+        // `3m`, `5-`: one digit 1–9 means 10–90 %; `15-`, `75m`: two digits are the percentage itself.
+        val percent = when (digits.length) {
+            1 -> register?.takeIf { it in 1..9 }?.times(10)
+            2 -> digits.toInt().takeIf { it in 1..99 }
+            else -> null
+        }
 
         return when (key) {
             Keys.PASTE_BEFORE, Keys.PASTE_AFTER -> {
@@ -80,14 +84,14 @@ object Parser {
             Keys.GOTO_LINE -> complete(Command(Action.GOTO_LINE, number ?: 1, number != null, buffer))
             Keys.DOC_MIDDLE -> when {
                 number == null -> complete(Command(Action.GOTO_PERCENT, 50, sequence = buffer))
-                percentDigit != null -> complete(Command(Action.GOTO_PERCENT, percentDigit * 10, true, buffer))
+                percent != null -> complete(Command(Action.GOTO_PERCENT, percent, true, buffer))
                 else -> ParseResult.Invalid
             }
             Keys.BLOCK_FIRST_LINE, Keys.BLOCK_LAST_LINE -> {
                 val action = if (key == Keys.BLOCK_FIRST_LINE) Action.BLOCK_FIRST_LINE else Action.BLOCK_LAST_LINE
                 when {
                     number == null -> complete(Command(action, 0, sequence = buffer))
-                    percentDigit != null -> complete(Command(action, percentDigit * 10, true, buffer))
+                    percent != null -> complete(Command(action, percent, true, buffer))
                     else -> ParseResult.Invalid
                 }
             }

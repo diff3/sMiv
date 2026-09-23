@@ -118,7 +118,8 @@ class ParserTest {
         assertEquals(20_000, complete("20000g").count)
         assertEquals(Command(Action.GOTO_PERCENT, 50, false, "m"), complete("m"))
         assertEquals(Command(Action.GOTO_PERCENT, 30, true, "3m"), complete("3m"))
-        invalid("12m")
+        assertEquals(Command(Action.GOTO_PERCENT, 33, true, "33m"), complete("33m"))
+        invalid("123m")
         invalid("0m")
         assertEquals(Action.DOC_END, complete("G").action)
         assertEquals(Command(Action.GOTO_LINE_FROM_BOTTOM, 3, true, "3G"), complete("3G"))
@@ -152,8 +153,11 @@ class ParserTest {
         assertEquals(Command(Action.BLOCK_FIRST_LINE, 0, false, "-"), complete("-"))
         assertEquals(Command(Action.BLOCK_FIRST_LINE, 50, true, "5-"), complete("5-"))
         assertEquals(Command(Action.BLOCK_LAST_LINE, 30, true, "3_"), complete("3_"))
-        invalid("12-")
+        assertEquals(Command(Action.BLOCK_FIRST_LINE, 15, true, "15-"), complete("15-"))
+        assertEquals(Command(Action.BLOCK_LAST_LINE, 75, true, "75_"), complete("75_"))
+        invalid("100-")
         invalid("0_")
+        invalid("00-")
     }
 
     @Test

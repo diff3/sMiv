@@ -286,7 +286,8 @@ class Engine(val state: SmivState = SmivState()) {
 
             Action.UNDO -> ide(IdeOp.UNDO)
             Action.REVERT_TO_SAVED -> ide(IdeOp.REVERT_TO_SAVED)
-            Action.INSERT -> enterInsert()
+            // `i` inserts after the character under the (block) caret; Space inserts before it.
+            Action.INSERT -> enterInsert(Effect.MoveCaret(minOf(caret + 1, TextOps.lineEnd(text, caret))))
             Action.INSERT_LINE_START -> enterInsert(Effect.Ide(IdeOp.LINE_START))
             Action.INSERT_LINE_END -> enterInsert(Effect.Ide(IdeOp.LINE_END))
             Action.OPEN_LINE_BELOW -> enterInsert(Effect.Ide(IdeOp.NEW_LINE_BELOW))
