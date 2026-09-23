@@ -13,7 +13,7 @@
       <li>Search <code>/ \ ,</code> with <b>n N</b>, replace with <code>=</code>, repeat with <b>.</b>, text objects <code>!y "x (p</code>, <b>U</b> revert to saved</li>
       <li>Register viewer <b>v</b>, anchors <b>Alt+Z / Alt+X</b>, sMiv menu from the status bar</li>
       <li>Custom NAV keys in Settings → Tools → sMiv</li>
-      <li>Selection mode <b>V</b>, <b>f F ;</b> on the line, <b>* #</b> word search, <b>J K H L</b> move / indent lines, <b>z</b> centre, <code>"X</code> / <code>(Y</code> including delimiters, <code>5-</code> / <code>5_</code> into a block</li>
+      <li>Selection mode <b>V</b> (also with the arrow keys), <b>f F ;</b> on the line, <b>* #</b> word search, <b>J K H L</b> move / indent lines, <b>z</b> centre, <code>"X</code> / <code>(Y</code> including delimiters, <code>5-</code> / <code>5_</code> into a block</li>
     </ul>
     ]]></description>
 
@@ -26,6 +26,11 @@
              except for sMiv's command line (search / replace) and half-typed commands. -->
         <editorActionHandler action="EditorEnter" implementationClass="nu.entropy.smiv.SmivEnterHandler"/>
         <editorActionHandler action="EditorBackSpace" implementationClass="nu.entropy.smiv.SmivBackspaceHandler"/>
+        <!-- Arrow keys extend the selection in selection mode (V). -->
+        <editorActionHandler action="EditorLeft" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
+        <editorActionHandler action="EditorRight" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
+        <editorActionHandler action="EditorUp" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
+        <editorActionHandler action="EditorDown" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
         <editorFactoryListener implementation="nu.entropy.smiv.SmivEditorFactoryListener"/>
         <statusBarWidgetFactory id="nu.entropy.smiv.status"
                                 implementation="nu.entropy.smiv.SmivStatusBarWidgetFactory"

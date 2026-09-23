@@ -46,7 +46,8 @@ selecting text, ...) work as usual.
 
 ## Selection mode
 
-- `V` starts selecting from the caret; motions (`w a s d`, `q e`, `f`, `/`, `n`, `-`, `g` …) extend the selection.
+- `V` starts selecting from the caret; motions (`w a s d`, the arrow keys, `q e`, `f`, `/`, `n`, `-`, `g` …) extend
+  the selection.
 - `x` deletes, `y` yanks, `c` / `C` change, `§` / `°` toggle case, `p` / `P` replace the selection. This ends selection
   mode, as do `V` and `Esc`. The status bar shows `sMiv SELECT`.
 - The same keys work on a selection made with the mouse or Shift+arrows.

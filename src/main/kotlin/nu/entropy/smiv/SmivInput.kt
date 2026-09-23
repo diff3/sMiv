@@ -70,6 +70,29 @@ class SmivEnterHandler(private val original: EditorActionHandler) : EditorAction
     }
 }
 
+/**
+ * Arrow keys in selection mode (`V`) extend the selection like `w a s d`; otherwise
+ * they work as usual.
+ */
+class SmivArrowHandler(private val original: EditorActionHandler) : EditorActionHandler() {
+    override fun isEnabledForCaret(editor: Editor, caret: Caret, dataContext: DataContext?): Boolean =
+        original.isEnabled(editor, caret, dataContext)
+
+    override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
+        val service = SmivService.get()
+        val anchor = service.engine.state.selectAnchor
+        if (anchor == null || !interceptsNav(editor)) {
+            original.execute(editor, caret, dataContext)
+            return
+        }
+        // Move from the caret (with a selection the arrow would only collapse it), then select again.
+        val primary = editor.caretModel.primaryCaret
+        primary.removeSelection()
+        original.execute(editor, primary, dataContext)
+        SmivEffects.selectFrom(editor, anchor)
+    }
+}
+
 /** Backspace edits the command line while one is open, otherwise it works as usual. */
 class SmivBackspaceHandler(private val original: EditorActionHandler) : EditorActionHandler() {
     private fun handles(editor: Editor) = interceptsNav(editor) && SmivService.get().isCommandLineActive
