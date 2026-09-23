@@ -22,12 +22,15 @@ class ParserTest {
         assertEquals(Action.REPLACE_WORD, complete("R").action)
         assertEquals(Action.TOGGLE_CASE_CHAR, complete("§").action)
         assertEquals(Action.TOGGLE_CASE_WORD, complete("°").action)
-        assertEquals(Action.CHANGE_TO_LINE_END, complete("-").action)
-        assertEquals(Action.CHANGE_LINE, complete("_").action)
+        assertEquals(Action.CHANGE_TO_LINE_END, complete("c").action)
+        assertEquals(Action.CHANGE_TO_LINE_START, complete("C").action)
+        assertEquals(Action.BLOCK_FIRST_LINE, complete("-").action)
+        assertEquals(Action.BLOCK_LAST_LINE, complete("_").action)
         assertEquals(Action.JOIN_LINES, complete("&").action)
         assertEquals(Action.JUMP_BRACKET_MATCH, complete("%").action)
         assertEquals(Action.INSERT_LINE_START, complete("I").action)
         assertEquals(Action.INSERT_LINE_END, complete("k").action)
+        assertEquals(Action.REVERT_TO_SAVED, complete("U").action)
     }
 
     @Test
@@ -50,6 +53,7 @@ class ParserTest {
         assertEquals(2, complete("2Y").count)
         assertEquals(4, complete("4R").count)
         assertEquals(3, complete("3§").count)
+        assertEquals(2, complete("2c").count)
         assertEquals(Command(Action.UNDO, 1, true, "3u"), complete("3u"))
         assertEquals(1, complete("3B").count)
     }
@@ -77,9 +81,17 @@ class ParserTest {
         assertEquals(Command(Action.YANK_LINE, 10, true, "10 2y", register = 2), complete("10 2y"))
         assertEquals(9, complete("1 9x").register)
         invalid("5 a")
+        invalid("12 y")
+        invalid("2 yy")
         invalid("5 3z")
         invalid("5 3xx")
         invalid(" ")
+    }
+
+    @Test
+    fun `register space x or y uses that register with count 1`() {
+        assertEquals(Command(Action.YANK_LINE, 1, true, "2 y", register = 2), complete("2 y"))
+        assertEquals(Command(Action.DELETE_CHAR, 1, true, "0 x", register = 0), complete("0 x"))
     }
 
     @Test
@@ -94,7 +106,7 @@ class ParserTest {
     @Test
     fun `digit v stores the clipboard`() {
         assertEquals(Command(Action.STORE_REGISTER, sequence = "2v", register = 2), complete("2v"))
-        invalid("v")
+        assertEquals(Action.SHOW_REGISTERS, complete("v").action)
         invalid("0v")
         invalid("12v")
     }
@@ -109,6 +121,27 @@ class ParserTest {
         invalid("12m")
         assertEquals(Action.DOC_END, complete("G").action)
         assertEquals(Command(Action.GOTO_LINE_FROM_BOTTOM, 3, true, "3G"), complete("3G"))
+    }
+
+    @Test
+    fun `text objects`() {
+        partial("\"")
+        assertEquals(Command(Action.TEXT_OBJECT_YANK, sequence = "\"y", char = '"'), complete("\"y"))
+        assertEquals(Command(Action.TEXT_OBJECT_DELETE, sequence = "(x", char = '('), complete("(x"))
+        assertEquals(Command(Action.TEXT_OBJECT_PASTE, sequence = "!p", char = '!'), complete("!p"))
+        partial("\" ")
+        partial("\" 3")
+        assertEquals(Command(Action.TEXT_OBJECT_YANK, sequence = "{ 3y", register = 3, char = '{'), complete("{ 3y"))
+        invalid("! 3y")
+        invalid("(z")
+        invalid("( 3z")
+    }
+
+    @Test
+    fun `repeat and search keys`() {
+        assertEquals(Action.REPEAT, complete(".").action)
+        assertEquals(Action.SEARCH_NEXT, complete("n").action)
+        assertEquals(Action.SEARCH_PREVIOUS, complete("N").action)
     }
 
     @Test

@@ -46,17 +46,39 @@ class SmivEscapeHandler(private val original: EditorActionHandler) : EditorActio
 
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
         if (original.isEnabled(editor, caret, dataContext)) original.execute(editor, caret, dataContext)
-        if (SmivService.get().isActiveIn(editor)) SmivService.get().toNav()
+        if (SmivService.get().isActiveIn(editor)) SmivService.get().toNav(editor)
     }
 }
 
-/** Enter only cancels a half-typed command in NAV (MIV behaviour); lookups handle Enter before this runs. */
+/**
+ * sMiv is a layer on top of the editor: in NAV only typed characters are taken over.
+ * Enter works as usual, except that it commits the command line (`/foo`, `=bar`),
+ * cancels a half-typed command, or applies an active replace rule to the current match.
+ */
 class SmivEnterHandler(private val original: EditorActionHandler) : EditorActionHandler() {
+    private fun handles(editor: Editor) = interceptsNav(editor) && SmivService.get().handlesEnter
+
     override fun isEnabledForCaret(editor: Editor, caret: Caret, dataContext: DataContext?): Boolean =
-        interceptsNav(editor) || original.isEnabled(editor, caret, dataContext)
+        handles(editor) || original.isEnabled(editor, caret, dataContext)
 
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
-        if (interceptsNav(editor)) SmivService.get().cancelPending() else original.execute(editor, caret, dataContext)
+        if (handles(editor)) {
+            SmivService.get().handleEnter(editor, dataContext ?: DataContext.EMPTY_CONTEXT)
+        } else {
+            original.execute(editor, caret, dataContext)
+        }
+    }
+}
+
+/** Backspace edits the command line while one is open, otherwise it works as usual. */
+class SmivBackspaceHandler(private val original: EditorActionHandler) : EditorActionHandler() {
+    private fun handles(editor: Editor) = interceptsNav(editor) && SmivService.get().isCommandLineActive
+
+    override fun isEnabledForCaret(editor: Editor, caret: Caret, dataContext: DataContext?): Boolean =
+        handles(editor) || original.isEnabled(editor, caret, dataContext)
+
+    override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
+        if (handles(editor)) SmivService.get().handleBackspace() else original.execute(editor, caret, dataContext)
     }
 }
 
@@ -94,6 +116,16 @@ abstract class SmivDelegateAction(private val actionId: String) : SmivNavAction(
         val action = ActionManager.getInstance().getAction(actionId) ?: return
         ActionManager.getInstance().tryToExecute(action, e.inputEvent, editor.contentComponent, e.place, true)
     }
+}
+
+/** Alt+Z: set the anchor. */
+class SmivSetAnchorAction : SmivNavAction() {
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().setAnchor(editor)
+}
+
+/** Alt+X: jump to the anchor, then toggle between it and where you jumped from. */
+class SmivJumpToAnchorAction : SmivNavAction() {
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().jumpToAnchor(editor)
 }
 
 /** Alt+A: navigate back. */

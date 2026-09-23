@@ -7,9 +7,11 @@
     <ul>
       <li><b>ESC</b> NAV mode, <b>i</b> / <b>Space</b> INSERT mode</li>
       <li><b>w a s d</b>, <b>W A S D</b>, <b>q e Q E</b> movement, with counts (<code>10s</code>)</li>
-      <li><b>x X b B y Y p P u o O I k r R - _ &amp; % § °</b> editing</li>
+      <li><b>x X b B y Y p P u o O I k r R c C &amp; % § °</b> editing, <b>- _</b> first/last line in block</li>
       <li><b>g m G</b> goto, <b>Alt+Q/E</b> paragraphs, <b>Alt+A/D</b> navigate back/forward</li>
-      <li>Registers 0–9 (9 is the clipboard): <code>5 3x</code>, <code>2 4y</code>, <code>3p</code>, <code>3P</code>, <code>2v</code></li>
+      <li>Registers 0–9 (9 is the clipboard): <code>2 y</code>, <code>5 3x</code>, <code>2 4y</code>, <code>3p</code>, <code>3P</code>, <code>2v</code></li>
+      <li>Search <code>/ \ ,</code> with <b>n N</b>, replace with <code>=</code>, repeat with <b>.</b>, text objects <code>!y "x (p</code>, <b>U</b> revert to saved</li>
+      <li>Register viewer <b>v</b>, anchors <b>Alt+Z / Alt+X</b>, sMiv menu from the status bar</li>
     </ul>
     ]]></description>
 
@@ -18,7 +20,10 @@
     <extensions defaultExtensionNs="com.intellij">
         <rawEditorTypedHandler implementationClass="nu.entropy.smiv.SmivTypedHandler"/>
         <editorActionHandler action="EditorEscape" implementationClass="nu.entropy.smiv.SmivEscapeHandler"/>
+        <!-- In NAV only typed characters are taken over. Enter and Backspace work as usual
+             except for sMiv's command line (search / replace) and half-typed commands. -->
         <editorActionHandler action="EditorEnter" implementationClass="nu.entropy.smiv.SmivEnterHandler"/>
+        <editorActionHandler action="EditorBackSpace" implementationClass="nu.entropy.smiv.SmivBackspaceHandler"/>
         <editorFactoryListener implementation="nu.entropy.smiv.SmivEditorFactoryListener"/>
         <statusBarWidgetFactory id="nu.entropy.smiv.status"
                                 implementation="nu.entropy.smiv.SmivStatusBarWidgetFactory"
@@ -35,6 +40,12 @@
         <action id="sMiv.ParagraphForward" class="nu.entropy.smiv.SmivParagraphForwardAction"
                 text="sMiv: Next Paragraph">
             <keyboard-shortcut keymap="$default" first-keystroke="alt E"/>
+        </action>
+        <action id="sMiv.SetAnchor" class="nu.entropy.smiv.SmivSetAnchorAction" text="sMiv: Set Anchor">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt Z"/>
+        </action>
+        <action id="sMiv.JumpToAnchor" class="nu.entropy.smiv.SmivJumpToAnchorAction" text="sMiv: Jump to Anchor">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt X"/>
         </action>
         <action id="sMiv.NavigateBack" class="nu.entropy.smiv.SmivNavigateBackAction"
                 text="sMiv: Navigate Back">

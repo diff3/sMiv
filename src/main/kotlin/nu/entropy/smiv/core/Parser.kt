@@ -11,8 +11,10 @@ data class Command(
     val sequence: String = "",
     /** Target (x, y, v) or source (p, P) register; null means the action's default. */
     val register: Int? = null,
-    /** Replacement character for `r`. */
+    /** Replacement character for `r`, or the object key for text objects. */
     val char: Char? = null,
+    /** Query for searches repeated with `.`. */
+    val text: String? = null,
 )
 
 sealed interface ParseResult {
@@ -26,13 +28,16 @@ sealed interface ParseResult {
  *
  * Grammar:
  * - `[count]key`, `[count]r<char>`
- * - `count ␠ register x|y` (for example `5 3x`)
- * - `[register]p`, `[register]P`, `register v`
+ * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
+ * - `[register]p`, `[register]P`, `v`, `register v`
  * - `g`, `[line]g`, `m`, `[1-9]m`, `G`, `[n]G`
+ * - text objects: `!y`, `"x`, `(p` or with a register `" 3y`
  */
 object Parser {
     fun parse(buffer: String): ParseResult {
         if (buffer.isEmpty()) return ParseResult.Invalid
+
+        if (buffer[0] in Keys.TEXT_OBJECT_KEYS) return parseTextObject(buffer)
 
         val digits = buffer.takeWhile { it.isAsciiDigit() }
         val rest = buffer.substring(digits.length)
@@ -62,6 +67,7 @@ object Parser {
                 complete(Command(action, sequence = buffer, register = register))
             }
             Keys.STORE_REGISTER -> {
+                if (digits.isEmpty()) return complete(Command(Action.SHOW_REGISTERS, sequence = buffer))
                 if (register == null || register == 0) return ParseResult.Invalid
                 complete(Command(Action.STORE_REGISTER, sequence = buffer, register = register))
             }
@@ -84,21 +90,49 @@ object Parser {
         }
     }
 
-    /** `count ␠ register x|y`, with partial states while it is being typed. */
+    /** `count ␠ register x|y` or `register ␠ x|y`, with partial states while it is being typed. */
     private fun parseRegisterTargeted(buffer: String, digits: String, rest: String): ParseResult {
         if (rest.length == 1) return ParseResult.Partial
         val register = rest[1]
-        if (!register.isAsciiDigit()) return ParseResult.Invalid
+        if (!register.isAsciiDigit()) {
+            // `2 y`: the single digit is the register and the count is 1.
+            val action = registerTargetAction(register)
+            if (action == null || rest.length != 2 || digits.length != 1) return ParseResult.Invalid
+            return complete(Command(action, 1, explicitCount = true, sequence = buffer, register = digits[0] - '0'))
+        }
         if (rest.length == 2) return ParseResult.Partial
         if (rest.length != 3) return ParseResult.Invalid
 
-        val action = when (rest[2]) {
-            Keys.DELETE_CHAR -> Action.DELETE_CHAR
-            Keys.YANK_LINE -> Action.YANK_LINE
-            else -> return ParseResult.Invalid
-        }
+        val action = registerTargetAction(rest[2]) ?: return ParseResult.Invalid
         val count = parseNumber(digits).coerceAtMost(MAX_COUNT)
         return complete(Command(action, count, explicitCount = true, sequence = buffer, register = register - '0'))
+    }
+
+    /**
+     * `"y` uses the default registers; `" 3y` names one (port of MIV's
+     * parseTextObjectCommand). `!` only has the short form, as in MIV.
+     */
+    private fun parseTextObject(buffer: String): ParseResult {
+        val objectKey = buffer[0]
+        if (buffer.length == 1) return ParseResult.Partial
+
+        Keys.TEXT_OBJECT_ACTIONS[buffer[1]]?.let { action ->
+            return if (buffer.length == 2) complete(Command(action, sequence = buffer, char = objectKey)) else ParseResult.Invalid
+        }
+        if (objectKey == Keys.TEXT_OBJECT_AUTO || buffer[1] != Keys.REGISTER_SEPARATOR) return ParseResult.Invalid
+        if (buffer.length == 2) return ParseResult.Partial
+        if (!buffer[2].isAsciiDigit()) return ParseResult.Invalid
+        if (buffer.length == 3) return ParseResult.Partial
+        if (buffer.length != 4) return ParseResult.Invalid
+
+        val action = Keys.TEXT_OBJECT_ACTIONS[buffer[3]] ?: return ParseResult.Invalid
+        return complete(Command(action, sequence = buffer, register = buffer[2] - '0', char = objectKey))
+    }
+
+    private fun registerTargetAction(key: Char): Action? = when (key) {
+        Keys.DELETE_CHAR -> Action.DELETE_CHAR
+        Keys.YANK_LINE -> Action.YANK_LINE
+        else -> null
     }
 
     private fun complete(command: Command) = ParseResult.Complete(command)

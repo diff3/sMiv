@@ -10,12 +10,24 @@ import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.editor.actionSystem.EditorActionManager
+import com.intellij.openapi.editor.colors.EditorColors
+import com.intellij.openapi.editor.markup.HighlighterLayer
+import com.intellij.openapi.editor.markup.HighlighterTargetArea
+import com.intellij.openapi.editor.markup.RangeHighlighter
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
+import com.intellij.openapi.fileEditor.impl.LoadTextUtil
 import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.ui.JBColor
 import nu.entropy.smiv.core.Effect
 import nu.entropy.smiv.core.IdeOp
+import nu.entropy.smiv.core.TextOps
+import java.awt.Color
+import java.awt.Point
 import java.awt.datatransfer.StringSelection
+import javax.swing.Timer
 
 /** Runs engine effects against a real editor. NAV commands only touch the primary caret. */
 object SmivEffects {
@@ -37,16 +49,104 @@ object SmivEffects {
 
     private val WRITE_OPS = setOf(IdeOp.NEW_LINE_BELOW, IdeOp.NEW_LINE_ABOVE, IdeOp.JOIN_LINES)
 
-    fun apply(editor: Editor, dataContext: DataContext, effects: List<Effect>) {
+    /** Runs [effects] in order; returns status messages produced while doing so. */
+    fun apply(editor: Editor, dataContext: DataContext, effects: List<Effect>): List<String> {
+        val messages = mutableListOf<String>()
         for (effect in effects) {
+            if (effect is Effect.Ide && effect.op == IdeOp.REVERT_TO_SAVED) {
+                messages += revertToSaved(editor)
+                continue
+            }
             when (effect) {
                 is Effect.Replace -> replace(editor, effect)
                 is Effect.MoveCaret -> moveCaret(editor, effect.offset)
                 is Effect.Ide -> runIdeOp(editor, dataContext, effect)
                 is Effect.SetClipboard -> CopyPasteManager.getInstance().setContents(StringSelection(effect.text))
+                is Effect.Highlight -> highlight(editor, effect)
+                is Effect.Flash -> flash(editor, effect)
+                is Effect.ShowRegisters -> SmivPopups.showRegisters(editor, effect.registers)
                 is Effect.Message -> Unit
             }
         }
+        return messages
+    }
+
+    private const val MAX_HIGHLIGHTS = 10_000
+    private const val FLASH_MS = 200
+    private val FLASH_ATTRIBUTES = TextAttributes().apply { backgroundColor = JBColor(Color(180, 200, 255), Color(60, 80, 120)) }
+
+    private var highlighted: Pair<Editor, List<RangeHighlighter>>? = null
+    private var lastHighlight: Pair<Editor, Effect.Highlight>? = null
+
+    /** Search highlighting can be switched off from the sMiv menu; matches are still searched. */
+    var highlightEnabled = true
+        private set
+
+    fun toggleHighlight(): Boolean {
+        highlightEnabled = !highlightEnabled
+        val last = lastHighlight
+        clearHighlights()
+        if (highlightEnabled && last != null && !last.first.isDisposed) highlight(last.first, last.second)
+        return highlightEnabled
+    }
+
+    /** Search matches in the editor's search colours; the current match like a selected result. */
+    private fun highlight(editor: Editor, effect: Effect.Highlight) {
+        clearHighlights()
+        lastHighlight = if (effect.matches.isEmpty()) null else editor to effect
+        if (effect.matches.isEmpty() || !highlightEnabled) return
+
+        val markup = editor.markupModel
+        val length = editor.document.textLength
+        val highlighters = effect.matches.take(MAX_HIGHLIGHTS).mapIndexed { index, match ->
+            val start = match.start.coerceIn(0, length)
+            // Empty regex matches still get a visible one-character mark.
+            val end = maxOf(match.end, match.start + 1).coerceIn(start, length)
+            val key = if (index == effect.current) EditorColors.SEARCH_RESULT_ATTRIBUTES else EditorColors.TEXT_SEARCH_RESULT_ATTRIBUTES
+            markup.addRangeHighlighter(key, start, end, HighlighterLayer.SELECTION - 1, HighlighterTargetArea.EXACT_RANGE)
+        }
+        highlighted = editor to highlighters
+    }
+
+    private fun flash(editor: Editor, effect: Effect.Flash) {
+        val length = editor.document.textLength
+        val start = effect.start.coerceIn(0, length)
+        val end = effect.end.coerceIn(start, length)
+        if (start == end) return
+        val highlighter = editor.markupModel.addRangeHighlighter(
+            start, end, HighlighterLayer.SELECTION - 1, FLASH_ATTRIBUTES, HighlighterTargetArea.EXACT_RANGE,
+        )
+        Timer(FLASH_MS) { if (!editor.isDisposed) editor.markupModel.removeHighlighter(highlighter) }
+            .apply { isRepeats = false }
+            .start()
+    }
+
+    fun clearHighlights() {
+        highlighted?.let { (editor, highlighters) ->
+            if (!editor.isDisposed) highlighters.forEach(editor.markupModel::removeHighlighter)
+        }
+        highlighted = null
+    }
+
+    /**
+     * `U`: replace the text with the last saved version as one undoable change, so `u`
+     * brings the edits back. Only the differing part is replaced, so the caret stays put.
+     */
+    private fun revertToSaved(editor: Editor): String {
+        val project = editor.project ?: return "no saved version"
+        val document = editor.document
+        val fileDocumentManager = FileDocumentManager.getInstance()
+        val file = fileDocumentManager.getFile(document) ?: return "no saved version"
+        if (!fileDocumentManager.isDocumentUnsaved(document)) return "no unsaved changes"
+        if (!document.isWritable) return "file is read-only"
+
+        val change = TextOps.minimalReplacement(document.immutableCharSequence, LoadTextUtil.loadText(file))
+            ?: return "no unsaved changes"
+        WriteCommandAction.runWriteCommandAction(project, "sMiv: Revert to Saved", null, {
+            document.replaceString(change.start, change.end, change.text)
+        })
+        editor.scrollingModel.scrollToCaret(ScrollType.MAKE_VISIBLE)
+        return "reverted to saved version"
     }
 
     private fun replace(editor: Editor, effect: Effect.Replace) {
@@ -90,12 +190,45 @@ object SmivEffects {
         }
     }
 
+    /**
+     * `u`: undo the last change but keep the caret and the scroll position where they
+     * are (adjusted for the undone text), instead of jumping to the change.
+     */
     private fun undo(editor: Editor) {
         val project = editor.project ?: return
         val fileEditor = FileEditorManagerEx.getInstanceEx(project).allEditors
             .filterIsInstance<TextEditor>()
             .firstOrNull { it.editor == editor }
         val undoManager = UndoManager.getInstance(project)
-        if (undoManager.isUndoAvailable(fileEditor)) undoManager.undo(fileEditor)
+        val document = editor.document
+        val scrolling = editor.scrollingModel
+
+        val topOffset = editor.logicalPositionToOffset(editor.xyToLogicalPosition(Point(0, scrolling.verticalScrollOffset)))
+        val topRemainder = scrolling.verticalScrollOffset - editor.offsetToXY(topOffset).y
+        val horizontal = scrolling.horizontalScrollOffset
+        // Greedy to the left: text re-inserted right at the caret ends up after it, so the caret sits on it.
+        val caretMarker = document.createRangeMarker(editor.caretModel.offset, editor.caretModel.offset)
+            .apply { isGreedyToLeft = true }
+        val topMarker = document.createRangeMarker(topOffset, topOffset)
+
+        try {
+            // Undo until the text actually changes (skips undo steps that only restore the caret).
+            val stamp = document.modificationStamp
+            var attempts = 0
+            while (attempts++ < 2 && document.modificationStamp == stamp && undoManager.isUndoAvailable(fileEditor)) {
+                undoManager.undo(fileEditor)
+            }
+
+            val caret = editor.caretModel.primaryCaret
+            caret.removeSelection()
+            caret.moveToOffset(caretMarker.startOffset.coerceIn(0, document.textLength))
+            scrolling.disableAnimation()
+            scrolling.scrollVertically(editor.offsetToXY(topMarker.startOffset).y + topRemainder)
+            scrolling.scrollHorizontally(horizontal)
+            scrolling.enableAnimation()
+        } finally {
+            caretMarker.dispose()
+            topMarker.dispose()
+        }
     }
 }

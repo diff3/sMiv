@@ -6,6 +6,14 @@ object TextOps {
 
     // ---- lines ----
 
+    /** First non-space/tab offset on the line containing [offset] (line end if blank). */
+    fun firstNonBlank(text: CharSequence, offset: Int): Int {
+        var i = lineStart(text, offset)
+        val end = lineEnd(text, offset)
+        while (i < end && (text[i] == ' ' || text[i] == '\t')) i++
+        return i
+    }
+
     fun lineStart(text: CharSequence, offset: Int): Int {
         var i = offset.coerceIn(0, text.length)
         while (i > 0 && text[i - 1] != '\n') i--
@@ -131,6 +139,127 @@ object TextOps {
         while (line > 0 && !lines.isBlank(line - 1)) line--
         return lines.start(line)
     }
+
+    // ---- revert to saved (`U`) ----
+
+    /**
+     * The smallest single replacement that turns [current] into [target] (common
+     * prefix and suffix are kept), or null when they are equal.
+     */
+    fun minimalReplacement(current: CharSequence, target: CharSequence): Effect.Replace? {
+        val maxShared = minOf(current.length, target.length)
+        var prefix = 0
+        while (prefix < maxShared && current[prefix] == target[prefix]) prefix++
+        if (prefix == current.length && prefix == target.length) return null
+        var suffix = 0
+        while (suffix < maxShared - prefix &&
+            current[current.length - 1 - suffix] == target[target.length - 1 - suffix]
+        ) suffix++
+        return Effect.Replace(prefix, current.length - suffix, target.substring(prefix, target.length - suffix))
+    }
+
+    // ---- block lines (`-` / `_`) ----
+
+    private const val BLOCK_OPENERS = "([{"
+    private const val BLOCK_CLOSERS = ")]}"
+
+    /**
+     * Innermost `()`, `[]` or `{}` around [offset] as (open, close) offsets. The caret
+     * may sit on either bracket. Brackets inside strings or comments are not skipped.
+     */
+    fun enclosingBlock(text: CharSequence, offset: Int): Pair<Int, Int>? {
+        var open = -1
+        if (offset < text.length && text[offset] in BLOCK_OPENERS) {
+            open = offset
+        } else {
+            var depth = 0
+            for (i in (offset - 1) downTo 0) {
+                val c = text[i]
+                if (c in BLOCK_CLOSERS) depth++
+                if (c in BLOCK_OPENERS && depth-- == 0) {
+                    open = i
+                    break
+                }
+            }
+        }
+        if (open < 0) return null
+
+        var depth = 0
+        for (i in (open + 1) until text.length) {
+            val c = text[i]
+            if (c in BLOCK_OPENERS) depth++
+            if (c in BLOCK_CLOSERS && depth-- == 0) return open to i
+        }
+        return null
+    }
+
+    /**
+     * `-` / `_`: first non-blank of the first ([first]) or last line inside the
+     * enclosing block. When the block has no lines of its own, the first or last
+     * character inside the brackets.
+     */
+    fun blockLineTarget(text: CharSequence, offset: Int, first: Boolean): Int? {
+        val (open, close) = enclosingBlock(text, offset) ?: return null
+        val openLineEnd = lineEnd(text, open)
+        val closeLineStart = lineStart(text, close)
+        val hasInnerLines = openLineEnd + 1 < closeLineStart
+        if (!hasInnerLines) return if (first || close == open + 1) open + 1 else close - 1
+        return firstNonBlank(text, if (first) openLineEnd + 1 else closeLineStart - 1)
+    }
+
+    // ---- text objects (port of MIV's editActions.ts, no nesting) ----
+
+    private val TEXT_OBJECT_PAIRS = mapOf(
+        '"' to '"', '\'' to '\'', '`' to '`', '´' to '´', '(' to ')', '[' to ']', '{' to '}', '<' to '>',
+    )
+    private val TEXT_OBJECT_CLOSERS = mapOf(')' to '(', ']' to '[', '}' to '{', '>' to '<')
+
+    /**
+     * Delimiter offsets (open, close) for text object [objectKey] around [offset]:
+     * scan left to the nearest opening delimiter, then right to the first closing one.
+     * `!` first tries the delimiter under the caret, then any pair.
+     */
+    fun findTextObjectBounds(text: CharSequence, offset: Int, objectKey: Char): Pair<Int, Int>? {
+        if (objectKey == Keys.TEXT_OBJECT_AUTO) autoBoundsAtCaret(text, offset)?.let { return it }
+
+        for (openOffset in (offset - 1) downTo 0) {
+            val close = textObjectCloseAt(text, openOffset, objectKey) ?: continue
+            val closeOffset = firstUnescaped(text, offset until text.length, close, symmetric = close == text[openOffset])
+                ?: continue
+            return openOffset to closeOffset
+        }
+        return null
+    }
+
+    private fun autoBoundsAtCaret(text: CharSequence, offset: Int): Pair<Int, Int>? {
+        if (offset !in text.indices) return null
+        val char = text[offset]
+        val open = if (char in TEXT_OBJECT_PAIRS) char else TEXT_OBJECT_CLOSERS[char] ?: return null
+        val close = TEXT_OBJECT_PAIRS.getValue(open)
+        val symmetric = open == close
+
+        if (symmetric) {
+            if (isEscaped(text, offset)) return null
+            firstUnescaped(text, (offset + 1) until text.length, close, true)?.let { return offset to it }
+            firstUnescaped(text, (offset - 1) downTo 0, open, true)?.let { return it to offset }
+            return null
+        }
+        if (char == open) firstUnescaped(text, (offset + 1) until text.length, close, false)?.let { return offset to it }
+        if (char == close) firstUnescaped(text, (offset - 1) downTo 0, open, false)?.let { return it to offset }
+        return null
+    }
+
+    /** Closing delimiter when [offset] holds an opening delimiter usable for [objectKey]. */
+    private fun textObjectCloseAt(text: CharSequence, offset: Int, objectKey: Char): Char? {
+        val open = text[offset]
+        if (objectKey != Keys.TEXT_OBJECT_AUTO && open != objectKey) return null
+        val close = TEXT_OBJECT_PAIRS[open] ?: return null
+        if (open == close && isEscaped(text, offset)) return null
+        return close
+    }
+
+    private fun firstUnescaped(text: CharSequence, indices: IntProgression, char: Char, symmetric: Boolean): Int? =
+        indices.firstOrNull { text[it] == char && !(symmetric && isEscaped(text, it)) }
 
     // ---- bracket matching (`%`, port of MIV's motionActions.ts) ----
 
