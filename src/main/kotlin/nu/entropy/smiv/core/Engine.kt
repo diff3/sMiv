@@ -14,6 +14,7 @@ data class TextView(
 enum class IdeOp {
     LEFT, RIGHT, UP, DOWN, PAGE_UP, PAGE_DOWN, LINE_START, LINE_END,
     NEW_LINE_BELOW, NEW_LINE_ABOVE, JOIN_LINES, UNDO, REVERT_TO_SAVED,
+    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, CENTER_LINE,
 }
 
 /** What a command asks the IDE to do, in order. Offsets refer to the text at that point. */
@@ -55,6 +56,9 @@ class Engine(val state: SmivState = SmivState()) {
 
     val isCommandLineActive: Boolean get() = state.commandLine != null
 
+    /** Selection mode (`V`) is on. */
+    val isSelecting: Boolean get() = state.selectAnchor != null
+
     /** Enter is taken by sMiv (instead of inserting a line) when this is true. */
     val handlesEnter: Boolean
         get() = state.mode == Mode.NAV &&
@@ -69,9 +73,9 @@ class Engine(val state: SmivState = SmivState()) {
             return emptyList()
         }
 
-        // The character after `r` is text, not a key.
-        val replacing = state.pending.lastOrNull() == Keys.REPLACE_CHAR
-        val char = if (replacing) typed else layout.translate(typed)
+        // The character after `r`, `f` and `F` is text, not a key.
+        val isArgument = state.pending.lastOrNull() in Keys.CHAR_ARGUMENT_KEYS
+        val char = if (isArgument) typed else layout.translate(typed)
         if (char == null) {
             state.pending.clear()
             return emptyList()
@@ -106,7 +110,10 @@ class Engine(val state: SmivState = SmivState()) {
     private fun run(command: Command, view: TextView, clipboard: () -> String?): List<Effect> {
         state.stats.record(command)
         if (command.action in Keys.REPEATABLE) state.lastCommand = command
-        return execute(command, view, clipboard)
+        val effects = execute(command, view, clipboard)
+        // Motions extend the selection in selection mode; anything else ends it.
+        if (command.action !in Keys.MOTIONS && command.action != Action.TOGGLE_SELECT) state.selectAnchor = null
+        return effects
     }
 
     /**
@@ -136,10 +143,11 @@ class Engine(val state: SmivState = SmivState()) {
         return true
     }
 
-    /** ESC: drop any half-typed command or command line, hide search matches, return to NAV. */
+    /** ESC: drop any half-typed command, command line or selection mode, hide search matches, return to NAV. */
     fun escape(): List<Effect> {
         state.pending.clear()
         state.commandLine = null
+        state.selectAnchor = null
         state.mode = Mode.NAV
         if (!state.searchVisible) return emptyList()
         state.searchVisible = false
@@ -220,18 +228,22 @@ class Engine(val state: SmivState = SmivState()) {
 
             Action.REPLACE_CHAR -> replaceChar(command.char ?: return emptyList(), view)
             Action.REPLACE_WORD -> replaceWord(count, view)
-            Action.TOGGLE_CASE_CHAR -> {
-                val end = minOf(text.length, caret + count)
-                toggleCase(caret, end, view, "toggled $count character${plural(count)}")
+            Action.TOGGLE_CASE_CHAR, Action.TOGGLE_CASE_WORD -> when {
+                usesSelection(command, view) ->
+                    toggleCase(selectionStart(view), selectionEnd(view), view, "toggled selection")
+                command.action == Action.TOGGLE_CASE_CHAR ->
+                    toggleCase(caret, minOf(text.length, caret + count), view, "toggled $count character${plural(count)}")
+                else -> {
+                    val range = TextOps.wordOperationRange(text, caret, count) ?: return emptyList()
+                    toggleCase(range.first, range.last + 1, view, "toggled $count word${plural(count)}")
+                }
             }
-            Action.TOGGLE_CASE_WORD -> {
-                val range = TextOps.wordOperationRange(text, caret, count) ?: return emptyList()
-                toggleCase(range.first, range.last + 1, view, "toggled $count word${plural(count)}")
-            }
-            Action.CHANGE_TO_LINE_END -> changeToLineEnd(count, view)
-            Action.CHANGE_TO_LINE_START -> changeToLineStart(view)
+            Action.CHANGE_TO_LINE_END ->
+                if (usesSelection(command, view)) changeSelection(view) else changeToLineEnd(count, view)
+            Action.CHANGE_TO_LINE_START ->
+                if (usesSelection(command, view)) changeSelection(view) else changeToLineStart(view)
             Action.BLOCK_FIRST_LINE, Action.BLOCK_LAST_LINE ->
-                TextOps.blockLineTarget(text, caret, first = command.action == Action.BLOCK_FIRST_LINE)
+                TextOps.blockLineTarget(text, caret, first = command.action == Action.BLOCK_FIRST_LINE, percent = command.count)
                     ?.let { listOf(Effect.MoveCaret(it)) }.orEmpty()
             Action.JOIN_LINES -> ide(IdeOp.JOIN_LINES)
             Action.JUMP_BRACKET_MATCH ->
@@ -247,14 +259,30 @@ class Engine(val state: SmivState = SmivState()) {
             Action.DOC_END -> listOf(Effect.MoveCaret(text.length))
 
             Action.REPEAT -> state.lastCommand?.let { execute(it, view, clipboard) }.orEmpty()
-            Action.SEARCH_FORWARD -> search(command.text.orEmpty(), view, forward = true, regex = false)
-            Action.SEARCH_BACKWARD -> search(command.text.orEmpty(), view, forward = false, regex = false)
-            Action.SEARCH_REGEX -> search(command.text.orEmpty(), view, forward = true, regex = true)
+            Action.SEARCH_FORWARD -> typedSearch(command.text.orEmpty(), view, forward = true, regex = false)
+            Action.SEARCH_BACKWARD -> typedSearch(command.text.orEmpty(), view, forward = false, regex = false)
+            Action.SEARCH_REGEX -> typedSearch(command.text.orEmpty(), view, forward = true, regex = true)
+            Action.SEARCH_WORD_FORWARD -> searchWord(view, forward = true)
+            Action.SEARCH_WORD_BACKWARD -> searchWord(view, forward = false)
             Action.SEARCH_NEXT -> searchAgain(view, forward = true)
             Action.SEARCH_PREVIOUS -> searchAgain(view, forward = false)
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
-            Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE ->
+            Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
+            Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND ->
                 textObject(command, view, clipboard)
+
+            Action.TOGGLE_SELECT -> toggleSelect(view)
+            Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD -> {
+                val char = command.char ?: return emptyList()
+                state.lastFind = char to (command.action == Action.FIND_CHAR)
+                findChar(view, char, command.action == Action.FIND_CHAR, count)
+            }
+            Action.REPEAT_FIND -> state.lastFind?.let { (char, forward) -> findChar(view, char, forward, count) }.orEmpty()
+            Action.MOVE_LINE_DOWN -> ide(IdeOp.MOVE_LINE_DOWN, count)
+            Action.MOVE_LINE_UP -> ide(IdeOp.MOVE_LINE_UP, count)
+            Action.INDENT -> ide(IdeOp.INDENT, count)
+            Action.OUTDENT -> ide(IdeOp.OUTDENT, count)
+            Action.CENTER_LINE -> ide(IdeOp.CENTER_LINE)
 
             Action.UNDO -> ide(IdeOp.UNDO)
             Action.REVERT_TO_SAVED -> ide(IdeOp.REVERT_TO_SAVED)
@@ -370,7 +398,15 @@ class Engine(val state: SmivState = SmivState()) {
         val index = command.register ?: SmivState.CLIPBOARD_REGISTER
         val value = register(index, clipboard)
         if (value.text.isEmpty()) return emptyList()
-        val effects = if (value.linewise) pasteLines(value.text, view, after) else pasteChars(value.text, view, after)
+        val effects = when {
+            // With a selection, the register replaces it.
+            view.hasSelection -> listOf(
+                Effect.Replace(selectionStart(view), selectionEnd(view), value.text),
+                Effect.MoveCaret(selectionStart(view)),
+            )
+            value.linewise -> pasteLines(value.text, view, after)
+            else -> pasteChars(value.text, view, after)
+        }
         return effects + Effect.Message("pasted register $index")
     }
 
@@ -449,43 +485,46 @@ class Engine(val state: SmivState = SmivState()) {
      * `/`, `\`, `,`: jump to the first match after the caret (forward) or before it
      * (backward), falling back to the last/first match like MIV, and highlight all.
      */
-    private fun search(
-        query: String,
-        view: TextView,
-        forward: Boolean,
-        regex: Boolean,
-        includeCaret: Boolean = false,
-    ): List<Effect> {
-        if (query.isEmpty()) return emptyList()
-        val matches = Search.findMatches(view.text, query, regex) ?: return listOf(Effect.Message("invalid regex: $query"))
-        if (matches.isEmpty()) return listOf(Effect.Message("not found: $query"))
+    /** `/`, `\`, `,`: smart case, so a query without upper-case letters ignores case. */
+    private fun typedSearch(query: String, view: TextView, forward: Boolean, regex: Boolean): List<Effect> =
+        search(SearchQuery(query, regex, Search.smartIgnoreCase(query, regex)), view, forward)
 
-        state.lastSearch = SearchQuery(query, regex)
-        val index = if (forward) {
-            val first = if (includeCaret) view.caret else view.caret + 1
-            matches.indexOfFirst { it.start >= first }.takeIf { it >= 0 } ?: matches.lastIndex
-        } else {
-            matches.indexOfLast { it.start < view.caret }.takeIf { it >= 0 } ?: 0
-        }
-        return showMatch(matches, index)
+    /** `*` / `#`: the whole word under the caret, case-sensitive, skipping the word itself. */
+    private fun searchWord(view: TextView, forward: Boolean): List<Effect> {
+        val word = TextOps.wordAt(view.text, view.caret) ?: return listOf(Effect.Message("no word under caret"))
+        val query = SearchQuery(Search.wholeWordPattern(view.text.substring(word.first, word.last + 1)), regex = true)
+        // Search from the start of the word so the word itself is skipped both ways.
+        return search(query, view.copy(caret = word.first), forward)
     }
 
-    /** `n` / `N`: next or previous match of the last search, counted from the caret. */
-    private fun searchAgain(view: TextView, forward: Boolean): List<Effect> {
-        val query = state.lastSearch ?: return emptyList()
-        val matches = Search.findMatches(view.text, query.pattern, query.regex) ?: return emptyList()
+    /**
+     * Jump to the first match after the caret (forward) or before it (backward) and
+     * highlight all. Past the last / first match the search wraps around.
+     */
+    private fun search(query: SearchQuery, view: TextView, forward: Boolean, includeCaret: Boolean = false): List<Effect> {
+        if (query.pattern.isEmpty()) return emptyList()
+        val matches = Search.findMatches(view.text, query.pattern, query.regex, query.ignoreCase)
+            ?: return listOf(Effect.Message("invalid regex: ${query.pattern}"))
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
 
-        val index = if (forward) matches.indexOfFirst { it.start > view.caret } else matches.indexOfLast { it.start < view.caret }
-        if (index < 0) {
-            state.searchVisible = true
-            val current = matches.indexOfFirst { it.start == view.caret }
-            return listOf(
-                Effect.Highlight(matches, current),
-                Effect.Message(if (forward) "search reached end" else "search reached start"),
-            )
-        }
-        return showMatch(matches, index)
+        state.lastSearch = query
+        val firstAfter = if (includeCaret) view.caret else view.caret + 1
+        return showNearest(matches, view, forward, firstAfter)
+    }
+
+    /** `n` / `N`: next or previous match of the last search, counted from the caret; wraps around. */
+    private fun searchAgain(view: TextView, forward: Boolean): List<Effect> {
+        val query = state.lastSearch ?: return emptyList()
+        val matches = Search.findMatches(view.text, query.pattern, query.regex, query.ignoreCase) ?: return emptyList()
+        if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
+        return showNearest(matches, view, forward, view.caret + 1)
+    }
+
+    private fun showNearest(matches: List<Match>, view: TextView, forward: Boolean, firstAfter: Int): List<Effect> {
+        val index = if (forward) matches.indexOfFirst { it.start >= firstAfter } else matches.indexOfLast { it.start < view.caret }
+        if (index >= 0) return showMatch(matches, index)
+        val wrapped = if (forward) 0 else matches.lastIndex
+        return showMatch(matches, wrapped) + Effect.Message("search wrapped")
     }
 
     private fun showMatch(matches: List<Match>, index: Int): List<Effect> {
@@ -515,7 +554,7 @@ class Engine(val state: SmivState = SmivState()) {
             ReplaceRule(parts[0], parts[1], regex = false)
         } else {
             val last = state.lastSearch ?: return listOf(Effect.Message("no previous search"))
-            ReplaceRule(last.pattern, parts[0], last.regex)
+            ReplaceRule(last.pattern, parts[0], last.regex, last.ignoreCase)
         }
 
         state.replaceRule = rule
@@ -527,18 +566,18 @@ class Engine(val state: SmivState = SmivState()) {
     private fun startStepping(rule: ReplaceRule, view: TextView): List<Effect> {
         // Old matches must not stay active for the new rule when it finds nothing.
         state.searchVisible = false
-        val effects = search(rule.search, view, forward = true, regex = rule.regex, includeCaret = true)
+        val effects = search(SearchQuery(rule.search, rule.regex, rule.ignoreCase), view, forward = true, includeCaret = true)
         if (!state.searchVisible) return listOf(Effect.Highlight(emptyList())) + effects
         return effects + Effect.Message("Enter replaces, n/N skips")
     }
 
     private fun replaceAll(rule: ReplaceRule, view: TextView): List<Effect> {
         val text = view.text
-        val count = Search.findMatches(text, rule.search, rule.regex)?.size
+        val count = Search.findMatches(text, rule.search, rule.regex, rule.ignoreCase)?.size
         val replaced = Search.replaceAll(text, rule)
         if (count == null || replaced == null) return listOf(Effect.Message("invalid regex: ${rule.search}"))
 
-        val remaining = Search.findMatches(replaced, rule.search, rule.regex).orEmpty()
+        val remaining = Search.findMatches(replaced, rule.search, rule.regex, rule.ignoreCase).orEmpty()
         state.searchVisible = remaining.isNotEmpty()
         return listOfNotNull(
             TextOps.minimalReplacement(text, replaced),
@@ -554,7 +593,7 @@ class Engine(val state: SmivState = SmivState()) {
     private fun applyReplaceRule(view: TextView): List<Effect> {
         val rule = state.replaceRule ?: return emptyList()
         val text = view.text
-        val matches = Search.findMatches(text, rule.search, rule.regex)
+        val matches = Search.findMatches(text, rule.search, rule.regex, rule.ignoreCase)
             ?: return listOf(Effect.Message("invalid regex: ${rule.search}"))
         val current = matches.firstOrNull { view.caret >= it.start && view.caret < it.end }
             ?: matches.firstOrNull { it.start >= view.caret }
@@ -562,7 +601,7 @@ class Engine(val state: SmivState = SmivState()) {
 
         val replacement = Search.replacementFor(text, rule, current)
         val updated = StringBuilder(text).replace(current.start, current.end, replacement)
-        val remaining = Search.findMatches(updated, rule.search, rule.regex).orEmpty()
+        val remaining = Search.findMatches(updated, rule.search, rule.regex, rule.ignoreCase).orEmpty()
         val next = remaining.indexOfFirst { it.start >= current.start + replacement.length }
         state.searchVisible = remaining.isNotEmpty()
         return listOf(
@@ -582,22 +621,25 @@ class Engine(val state: SmivState = SmivState()) {
     private fun textObject(command: Command, view: TextView, clipboard: () -> String?): List<Effect> {
         val objectKey = command.char ?: return emptyList()
         val (open, close) = TextOps.findTextObjectBounds(view.text, view.caret, objectKey) ?: return emptyList()
-        val start = open + 1
-        val selected = view.text.substring(start, close)
+        // `"Y` / `"X` include the delimiters.
+        val around = command.action == Action.TEXT_OBJECT_YANK_AROUND || command.action == Action.TEXT_OBJECT_DELETE_AROUND
+        val start = if (around) open else open + 1
+        val end = if (around) close + 1 else close
+        val selected = view.text.substring(start, end)
 
         return when (command.action) {
-            Action.TEXT_OBJECT_YANK -> {
+            Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_YANK_AROUND -> {
                 if (selected.isEmpty()) return emptyList()
                 val registers = command.register?.let { listOf(it) }
                     ?: listOf(SmivState.YANK_REGISTER, SmivState.CLIPBOARD_REGISTER)
                 registers.flatMap { store(it, selected, linewise = false) } +
-                    Effect.Flash(start, close) + Effect.Message("stored yank in register ${registers.first()}")
+                    Effect.Flash(start, end) + Effect.Message("stored yank in register ${registers.first()}")
             }
-            Action.TEXT_OBJECT_DELETE -> {
+            Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_DELETE_AROUND -> {
                 if (selected.isEmpty()) return emptyList()
                 val register = command.register ?: SmivState.DELETE_REGISTER
                 store(register, selected, linewise = false) + listOf(
-                    Effect.Replace(start, close, ""),
+                    Effect.Replace(start, end, ""),
                     Effect.MoveCaret(start),
                     Effect.Message("stored delete in register $register"),
                 )
@@ -612,5 +654,41 @@ class Engine(val state: SmivState = SmivState()) {
                 )
             }
         }
+    }
+
+    // ---- selection mode, find character ----
+
+    private fun usesSelection(command: Command, view: TextView) = !command.explicitCount && view.hasSelection
+    private fun selectionStart(view: TextView) = minOf(view.selectionStart, view.selectionEnd)
+    private fun selectionEnd(view: TextView) = maxOf(view.selectionStart, view.selectionEnd)
+
+    /**
+     * `V`: start selecting from the caret (or keep an existing selection), or stop and
+     * drop the selection. While on, motions extend the selection and `x y c § p`
+     * act on it.
+     */
+    private fun toggleSelect(view: TextView): List<Effect> {
+        if (state.selectAnchor != null) {
+            state.selectAnchor = null
+            return listOf(Effect.MoveCaret(view.caret))
+        }
+        state.selectAnchor = when {
+            !view.hasSelection -> view.caret
+            view.caret == view.selectionEnd -> view.selectionStart
+            else -> view.selectionEnd
+        }
+        return emptyList()
+    }
+
+    /** `c` / `C` with a selection: delete it into register 8 and enter INSERT. */
+    private fun changeSelection(view: TextView): List<Effect> {
+        state.mode = Mode.INSERT
+        return deleteRange(selectionStart(view), selectionEnd(view), view.text)
+    }
+
+    /** `f` / `F` / `;`: jump to the [count]th [char] on the line, if there is one. */
+    private fun findChar(view: TextView, char: Char, forward: Boolean, count: Int): List<Effect> {
+        val target = TextOps.findCharOnLine(view.text, view.caret, char, forward, count) ?: return emptyList()
+        return listOf(Effect.MoveCaret(target))
     }
 }

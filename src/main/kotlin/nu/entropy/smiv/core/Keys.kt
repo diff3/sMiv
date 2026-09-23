@@ -19,9 +19,13 @@ enum class Action(val countable: Boolean = false) {
     GOTO_LINE, GOTO_PERCENT, DOC_END, GOTO_LINE_FROM_BOTTOM,
     UNDO, REVERT_TO_SAVED, INSERT, INSERT_LINE_START, INSERT_LINE_END, OPEN_LINE_BELOW, OPEN_LINE_ABOVE,
     REPEAT, SEARCH_NEXT, SEARCH_PREVIOUS,
+    TOGGLE_SELECT, FIND_CHAR(true), FIND_CHAR_BACKWARD(true), REPEAT_FIND(true),
+    SEARCH_WORD_FORWARD, SEARCH_WORD_BACKWARD,
+    MOVE_LINE_DOWN(true), MOVE_LINE_UP(true), INDENT(true), OUTDENT(true), CENTER_LINE,
     // Built by the engine from the command line (`/foo`, `=bar`), not by the parser.
     SEARCH_FORWARD, SEARCH_BACKWARD, SEARCH_REGEX, APPLY_REPLACE_RULE,
     TEXT_OBJECT_YANK, TEXT_OBJECT_DELETE, TEXT_OBJECT_PASTE,
+    TEXT_OBJECT_YANK_AROUND, TEXT_OBJECT_DELETE_AROUND,
 }
 
 object Keys {
@@ -36,6 +40,28 @@ object Keys {
     const val DOC_BOTTOM = 'G'
     const val DELETE_CHAR = 'x'
     const val YANK_LINE = 'y'
+    const val FIND_CHAR = 'f'
+    const val FIND_CHAR_BACKWARD = 'F'
+    const val BLOCK_FIRST_LINE = '-'
+    const val BLOCK_LAST_LINE = '_'
+
+    /** Keys whose next typed character is an argument (`rX`, `fX`, `FX`), not a key. */
+    val CHAR_ARGUMENT_KEYS: Map<Char, Action> = mapOf(
+        REPLACE_CHAR to Action.REPLACE_CHAR,
+        FIND_CHAR to Action.FIND_CHAR,
+        FIND_CHAR_BACKWARD to Action.FIND_CHAR_BACKWARD,
+    )
+
+    /** Commands that move the caret; in selection mode (`V`) they extend the selection. */
+    val MOTIONS: Set<Action> = setOf(
+        Action.LEFT, Action.RIGHT, Action.UP, Action.DOWN, Action.PAGE_UP, Action.PAGE_DOWN,
+        Action.LINE_START, Action.LINE_END, Action.WORD_LEFT, Action.WORD_END_RIGHT,
+        Action.WORD_END_LEFT, Action.WORD_START_RIGHT, Action.BLOCK_FIRST_LINE, Action.BLOCK_LAST_LINE,
+        Action.JUMP_BRACKET_MATCH, Action.GOTO_LINE, Action.GOTO_PERCENT, Action.DOC_END,
+        Action.GOTO_LINE_FROM_BOTTOM, Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS, Action.SEARCH_FORWARD,
+        Action.SEARCH_BACKWARD, Action.SEARCH_REGEX, Action.SEARCH_WORD_FORWARD, Action.SEARCH_WORD_BACKWARD,
+        Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD, Action.REPEAT_FIND, Action.CENTER_LINE,
+    )
 
     /** Keys that open the command line when no command is pending. */
     val COMMAND_LINE_KEYS: Map<Char, CommandLineKind> = mapOf(
@@ -49,10 +75,13 @@ object Keys {
     const val TEXT_OBJECT_AUTO = '!'
     const val TEXT_OBJECT_KEYS = "!\"'`´([{"
 
+    /** `"y` / `"x` / `"p` act inside the delimiters; `"Y` / `"X` include them. */
     val TEXT_OBJECT_ACTIONS: Map<Char, Action> = mapOf(
         YANK_LINE to Action.TEXT_OBJECT_YANK,
         DELETE_CHAR to Action.TEXT_OBJECT_DELETE,
         PASTE_BEFORE to Action.TEXT_OBJECT_PASTE,
+        'Y' to Action.TEXT_OBJECT_YANK_AROUND,
+        'X' to Action.TEXT_OBJECT_DELETE_AROUND,
     )
 
     /** Commands that `.` repeats (MIV's REPEATABLE_EDIT_ACTIONS plus searches and replace). */
@@ -62,6 +91,8 @@ object Keys {
         Action.TOGGLE_CASE_CHAR, Action.TOGGLE_CASE_WORD, Action.OPEN_LINE_BELOW, Action.OPEN_LINE_ABOVE,
         Action.CHANGE_TO_LINE_END, Action.CHANGE_TO_LINE_START, Action.JOIN_LINES,
         Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
+        Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND,
+        Action.MOVE_LINE_DOWN, Action.MOVE_LINE_UP, Action.INDENT, Action.OUTDENT,
         Action.SEARCH_FORWARD, Action.SEARCH_BACKWARD, Action.SEARCH_REGEX, Action.APPLY_REPLACE_RULE,
     )
 
@@ -98,6 +129,15 @@ object Keys {
         '.' to Action.REPEAT,
         'n' to Action.SEARCH_NEXT,
         'N' to Action.SEARCH_PREVIOUS,
+        'V' to Action.TOGGLE_SELECT,
+        ';' to Action.REPEAT_FIND,
+        '*' to Action.SEARCH_WORD_FORWARD,
+        '#' to Action.SEARCH_WORD_BACKWARD,
+        'J' to Action.MOVE_LINE_DOWN,
+        'K' to Action.MOVE_LINE_UP,
+        'L' to Action.INDENT,
+        'H' to Action.OUTDENT,
+        'z' to Action.CENTER_LINE,
         'i' to Action.INSERT,
         'I' to Action.INSERT_LINE_START,
         'k' to Action.INSERT_LINE_END,
@@ -167,6 +207,17 @@ class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
             KeyBinding("UNDO", 'u', "Undo"),
             KeyBinding("REVERT_TO_SAVED", 'U', "Revert to saved version"),
             KeyBinding("REPEAT_ALIAS", '.', "Repeat"),
+            KeyBinding("TOGGLE_SELECT", 'V', "Selection mode"),
+            KeyBinding("FIND_CHAR", 'f', "Find character forward on the line"),
+            KeyBinding("FIND_CHAR_BACKWARD", 'F', "Find character backward on the line"),
+            KeyBinding("REPEAT_FIND", ';', "Repeat character find"),
+            KeyBinding("SEARCH_WORD_FORWARD", '*', "Search word under caret forward"),
+            KeyBinding("SEARCH_WORD_BACKWARD", '#', "Search word under caret backward"),
+            KeyBinding("MOVE_LINE_DOWN", 'J', "Move line down"),
+            KeyBinding("MOVE_LINE_UP", 'K', "Move line up"),
+            KeyBinding("INDENT_LINES", 'L', "Indent"),
+            KeyBinding("OUTDENT_LINES", 'H', "Outdent"),
+            KeyBinding("CENTER_LINE", 'z', "Center line in view"),
             KeyBinding("SEARCH_FORWARD", '/', "Search forward"),
             KeyBinding("SEARCH_BACKWARD", '\\', "Search backward"),
             KeyBinding("SEARCH_REGEX", ',', "Regex search"),

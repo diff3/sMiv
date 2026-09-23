@@ -25,6 +25,12 @@ class SmivState {
 
     val stats = CommandStats()
 
+    /** Selection mode (`V`): the selection runs from here to the caret. */
+    var selectAnchor: Int? = null
+
+    /** Last `f` / `F` (character, forward) for `;`. */
+    var lastFind: Pair<Char, Boolean>? = null
+
     /** Registers 0..8. Register 9 is the system clipboard itself, see [Engine]. */
     val registers: Array<Register> = Array(CLIPBOARD_REGISTER) { Register() }
 

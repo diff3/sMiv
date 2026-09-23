@@ -10,6 +10,7 @@ class KeyLayoutTest {
     fun `every key the parser knows can be remapped and defaults do not clash`() {
         val defaults = KeyLayout.BINDINGS.map { it.defaultKey }.toSet()
         val parserKeys = Keys.SINGLE_KEY_ACTIONS.keys + Keys.COMMAND_LINE_KEYS.keys + Keys.TEXT_OBJECT_KEYS.toSet() +
+            Keys.CHAR_ARGUMENT_KEYS.keys +
             setOf(Keys.REPLACE_CHAR, Keys.PASTE_BEFORE, Keys.PASTE_AFTER, Keys.STORE_REGISTER, Keys.GOTO_LINE, Keys.DOC_MIDDLE, Keys.DOC_BOTTOM)
         assertEquals(parserKeys, defaults)
         assertNull(KeyLayout.validate(emptyMap()))
@@ -21,7 +22,7 @@ class KeyLayoutTest {
         assertEquals('a', layout.translate('a'))
         assertEquals('7', layout.translate('7'))
         assertEquals(' ', layout.translate(' '))
-        assertNull(layout.translate('z'))
+        assertNull(layout.translate('j'))
     }
 
     @Test

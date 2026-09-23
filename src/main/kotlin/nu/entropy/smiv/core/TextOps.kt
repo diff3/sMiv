@@ -116,6 +116,22 @@ object TextOps {
         return if (end > start) start until end else null
     }
 
+    /** The word (letters, digits, `_` …) at or right before [offset], for `*` / `#`. */
+    fun wordAt(text: CharSequence, offset: Int): IntRange? {
+        var start = offset.coerceIn(0, text.length)
+        if ((start >= text.length || charClass(text[start]) != 2) && (start == 0 || charClass(text[start - 1]) != 2)) return null
+        while (start > 0 && charClass(text[start - 1]) == 2) start--
+        var end = start
+        while (end < text.length && charClass(text[end]) == 2) end++
+        return start until end
+    }
+
+    /** `f` / `F`: the [count]th [char] after (or before) [offset] on the same line. */
+    fun findCharOnLine(text: CharSequence, offset: Int, char: Char, forward: Boolean, count: Int): Int? {
+        val range = if (forward) (offset + 1) until lineEnd(text, offset) else (offset - 1) downTo lineStart(text, offset)
+        return range.filter { text[it] == char }.getOrNull(count - 1)
+    }
+
     fun toggleCase(value: CharSequence): String = buildString(value.length) {
         for (c in value) append(if (c.isUpperCase()) c.lowercaseChar() else c.uppercaseChar())
     }
@@ -195,16 +211,26 @@ object TextOps {
 
     /**
      * `-` / `_`: first non-blank of the first ([first]) or last line inside the
-     * enclosing block. When the block has no lines of its own, the first or last
-     * character inside the brackets.
+     * enclosing block, or [percent] of the way in from the top (`-`) or bottom (`_`).
+     * When the block has no lines of its own, the first or last character inside the brackets.
      */
-    fun blockLineTarget(text: CharSequence, offset: Int, first: Boolean): Int? {
+    fun blockLineTarget(text: CharSequence, offset: Int, first: Boolean, percent: Int = 0): Int? {
         val (open, close) = enclosingBlock(text, offset) ?: return null
         val openLineEnd = lineEnd(text, open)
         val closeLineStart = lineStart(text, close)
         val hasInnerLines = openLineEnd + 1 < closeLineStart
         if (!hasInnerLines) return if (first || close == open + 1) open + 1 else close - 1
-        return firstNonBlank(text, if (first) openLineEnd + 1 else closeLineStart - 1)
+
+        val innerLineStarts = buildList {
+            var start = openLineEnd + 1
+            while (start < closeLineStart) {
+                add(start)
+                start = lineEnd(text, start) + 1
+            }
+        }
+        val fromTop = Math.round((innerLineStarts.size - 1) * percent / 100.0).toInt()
+        val index = if (first) fromTop else innerLineStarts.lastIndex - fromTop
+        return firstNonBlank(text, innerLineStarts[index])
     }
 
     // ---- text objects (port of MIV's editActions.ts, no nesting) ----

@@ -45,9 +45,16 @@ object SmivEffects {
         IdeOp.NEW_LINE_BELOW to IdeActions.ACTION_EDITOR_START_NEW_LINE,
         IdeOp.NEW_LINE_ABOVE to "EditorStartNewLineBefore",
         IdeOp.JOIN_LINES to IdeActions.ACTION_EDITOR_JOIN_LINES,
+        IdeOp.MOVE_LINE_DOWN to IdeActions.ACTION_MOVE_LINE_DOWN_ACTION,
+        IdeOp.MOVE_LINE_UP to IdeActions.ACTION_MOVE_LINE_UP_ACTION,
+        IdeOp.INDENT to "EditorIndentLineOrSelection",
+        IdeOp.OUTDENT to IdeActions.ACTION_EDITOR_UNINDENT_SELECTION,
     )
 
-    private val WRITE_OPS = setOf(IdeOp.NEW_LINE_BELOW, IdeOp.NEW_LINE_ABOVE, IdeOp.JOIN_LINES)
+    private val WRITE_OPS = setOf(
+        IdeOp.NEW_LINE_BELOW, IdeOp.NEW_LINE_ABOVE, IdeOp.JOIN_LINES,
+        IdeOp.MOVE_LINE_DOWN, IdeOp.MOVE_LINE_UP, IdeOp.INDENT, IdeOp.OUTDENT,
+    )
 
     /** Runs [effects] in order; returns status messages produced while doing so. */
     fun apply(editor: Editor, dataContext: DataContext, effects: List<Effect>): List<String> {
@@ -158,6 +165,13 @@ object SmivEffects {
         })
     }
 
+    /** Selection mode: select from [anchor] to the caret after a motion. */
+    fun selectFrom(editor: Editor, anchor: Int) {
+        val caret = editor.caretModel.primaryCaret
+        val start = anchor.coerceIn(0, editor.document.textLength)
+        caret.setSelection(minOf(start, caret.offset), maxOf(start, caret.offset))
+    }
+
     private fun moveCaret(editor: Editor, offset: Int) {
         val caret = editor.caretModel.primaryCaret
         caret.removeSelection()
@@ -166,6 +180,10 @@ object SmivEffects {
     }
 
     private fun runIdeOp(editor: Editor, dataContext: DataContext, effect: Effect.Ide) {
+        if (effect.op == IdeOp.CENTER_LINE) {
+            editor.scrollingModel.scrollToCaret(ScrollType.CENTER)
+            return
+        }
         if (effect.op == IdeOp.UNDO) {
             // Typing may run inside the editor's own command, and undo is not allowed there.
             ApplicationManager.getApplication().invokeLater({
@@ -175,7 +193,7 @@ object SmivEffects {
         }
 
         val actionId = ACTION_IDS[effect.op] ?: return
-        val handler = EditorActionManager.getInstance().getActionHandler(actionId)
+        val handler = EditorActionManager.getInstance().getActionHandler(actionId) ?: return
         val caret = editor.caretModel.primaryCaret
         val writes = effect.op in WRITE_OPS
         repeat(effect.times) {
@@ -185,6 +203,8 @@ object SmivEffects {
                     handler.execute(editor, caret, dataContext)
                 }, COMMAND_NAME, null, editor.document)
             } else {
+                // With a selection, IntelliJ's arrow actions only collapse it; move from the caret instead.
+                caret.removeSelection()
                 handler.execute(editor, caret, dataContext)
             }
         }

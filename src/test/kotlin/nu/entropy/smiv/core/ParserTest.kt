@@ -119,6 +119,7 @@ class ParserTest {
         assertEquals(Command(Action.GOTO_PERCENT, 50, false, "m"), complete("m"))
         assertEquals(Command(Action.GOTO_PERCENT, 30, true, "3m"), complete("3m"))
         invalid("12m")
+        invalid("0m")
         assertEquals(Action.DOC_END, complete("G").action)
         assertEquals(Command(Action.GOTO_LINE_FROM_BOTTOM, 3, true, "3G"), complete("3G"))
     }
@@ -138,6 +139,39 @@ class ParserTest {
     }
 
     @Test
+    fun `f and F take a character and a count`() {
+        partial("f")
+        partial("3F")
+        assertEquals(Command(Action.FIND_CHAR, 1, false, "f,", char = ','), complete("f,"))
+        assertEquals(Command(Action.FIND_CHAR_BACKWARD, 3, true, "3F(", char = '('), complete("3F("))
+        invalid("fab")
+    }
+
+    @Test
+    fun `dash and underscore take a percentage digit`() {
+        assertEquals(Command(Action.BLOCK_FIRST_LINE, 0, false, "-"), complete("-"))
+        assertEquals(Command(Action.BLOCK_FIRST_LINE, 50, true, "5-"), complete("5-"))
+        assertEquals(Command(Action.BLOCK_LAST_LINE, 30, true, "3_"), complete("3_"))
+        invalid("12-")
+        invalid("0_")
+    }
+
+    @Test
+    fun `new single keys and text objects with delimiters`() {
+        assertEquals(Action.TOGGLE_SELECT, complete("V").action)
+        assertEquals(Action.REPEAT_FIND, complete(";").action)
+        assertEquals(Action.SEARCH_WORD_FORWARD, complete("*").action)
+        assertEquals(Action.SEARCH_WORD_BACKWARD, complete("#").action)
+        assertEquals(Command(Action.MOVE_LINE_DOWN, 2, true, "2J"), complete("2J"))
+        assertEquals(Action.MOVE_LINE_UP, complete("K").action)
+        assertEquals(Action.INDENT, complete("L").action)
+        assertEquals(Action.OUTDENT, complete("H").action)
+        assertEquals(Action.CENTER_LINE, complete("z").action)
+        assertEquals(Command(Action.TEXT_OBJECT_DELETE_AROUND, sequence = "\"X", char = '"'), complete("\"X"))
+        assertEquals(Command(Action.TEXT_OBJECT_YANK_AROUND, sequence = "( 3Y", register = 3, char = '('), complete("( 3Y"))
+    }
+
+    @Test
     fun `repeat and search keys`() {
         assertEquals(Action.REPEAT, complete(".").action)
         assertEquals(Action.SEARCH_NEXT, complete("n").action)
@@ -146,8 +180,8 @@ class ParserTest {
 
     @Test
     fun `unknown keys and long sequences are invalid`() {
-        invalid("z")
-        invalid("5zz")
+        invalid("j")
+        invalid("5jj")
         invalid("2 3p")
     }
 }

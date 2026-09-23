@@ -27,11 +27,12 @@ sealed interface ParseResult {
  * Parse the buffered NAV key sequence (port of MIV's `parser/index.ts`).
  *
  * Grammar:
- * - `[count]key`, `[count]r<char>`
+ * - `[count]key`, `r<char>`, `[count]f<char>`, `[count]F<char>`
+ * - `-` / `_` and `[1-9]-` / `[1-9]_` (10–90 % into the block from the top / bottom)
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
  * - `[register]p`, `[register]P`, `v`, `register v`
  * - `g`, `[line]g`, `m`, `[1-9]m`, `G`, `[n]G`
- * - text objects: `!y`, `"x`, `(p` or with a register `" 3y`
+ * - text objects: `!y`, `"x`, `(p`, `"Y`, `(X` or with a register `" 3y`
  */
 object Parser {
     fun parse(buffer: String): ParseResult {
@@ -47,10 +48,13 @@ object Parser {
             return if (digits.isEmpty()) ParseResult.Invalid else parseRegisterTargeted(buffer, digits, rest)
         }
 
-        if (rest[0] == Keys.REPLACE_CHAR) {
+        Keys.CHAR_ARGUMENT_KEYS[rest[0]]?.let { action ->
             return when (rest.length) {
                 1 -> ParseResult.Partial
-                2 -> complete(Command(Action.REPLACE_CHAR, sequence = buffer, char = rest[1]))
+                2 -> {
+                    val count = if (action.countable && digits.isNotEmpty()) parseNumber(digits).coerceAtMost(MAX_COUNT) else 1
+                    complete(Command(action, count, digits.isNotEmpty(), buffer, char = rest[1]))
+                }
                 else -> ParseResult.Invalid
             }
         }
@@ -59,6 +63,8 @@ object Parser {
         val key = rest[0]
         val number = digits.ifEmpty { null }?.let(::parseNumber)
         val register = if (digits.length == 1) digits[0] - '0' else null
+        // `3m`, `5-`: a single digit 1–9 meaning 10–90 %.
+        val percentDigit = register?.takeIf { it in 1..9 }
 
         return when (key) {
             Keys.PASTE_BEFORE, Keys.PASTE_AFTER -> {
@@ -74,9 +80,16 @@ object Parser {
             Keys.GOTO_LINE -> complete(Command(Action.GOTO_LINE, number ?: 1, number != null, buffer))
             Keys.DOC_MIDDLE -> when {
                 number == null -> complete(Command(Action.GOTO_PERCENT, 50, sequence = buffer))
-                digits.length == 1 && number in 1..9 ->
-                    complete(Command(Action.GOTO_PERCENT, number * 10, true, buffer))
+                percentDigit != null -> complete(Command(Action.GOTO_PERCENT, percentDigit * 10, true, buffer))
                 else -> ParseResult.Invalid
+            }
+            Keys.BLOCK_FIRST_LINE, Keys.BLOCK_LAST_LINE -> {
+                val action = if (key == Keys.BLOCK_FIRST_LINE) Action.BLOCK_FIRST_LINE else Action.BLOCK_LAST_LINE
+                when {
+                    number == null -> complete(Command(action, 0, sequence = buffer))
+                    percentDigit != null -> complete(Command(action, percentDigit * 10, true, buffer))
+                    else -> ParseResult.Invalid
+                }
             }
             Keys.DOC_BOTTOM ->
                 if (number == null) complete(Command(Action.DOC_END, sequence = buffer))

@@ -56,7 +56,7 @@ class SmivService : Disposable {
         enabled && editor.project != null && editor.editorKind == EditorKind.MAIN_EDITOR
 
     fun statusText(): String {
-        val base = "sMiv ${mode.name}"
+        val base = if (engine.isSelecting) "sMiv SELECT" else "sMiv ${mode.name}"
         val extra = engine.commandLine.ifEmpty { message.orEmpty() }
         return if (extra.isEmpty()) base else "$base  $extra"
     }
@@ -82,6 +82,7 @@ class SmivService : Disposable {
         val effects = command(view)
         val messages = effects.filterIsInstance<Effect.Message>().map { it.text } +
             SmivEffects.apply(editor, dataContext, effects.filterNot { it is Effect.Message })
+        engine.state.selectAnchor?.let { SmivEffects.selectFrom(editor, it) }
         messages.lastOrNull()?.let(::showMessage)
         refresh()
     }
@@ -157,8 +158,8 @@ class SmivService : Disposable {
         widgets -= widget
     }
 
-    /** Status bar colour: plain in NAV, highlighted in INSERT and while a command is typed (as in MIV). */
-    val statusHighlighted: Boolean get() = mode == Mode.INSERT || engine.commandLine.isNotEmpty()
+    /** Status bar colour: plain in NAV, highlighted in INSERT, selection mode and while a command is typed (as in MIV). */
+    val statusHighlighted: Boolean get() = mode == Mode.INSERT || engine.isSelecting || engine.commandLine.isNotEmpty()
 
     /** Re-apply cursor shape to every editor and redraw the status bar widgets. */
     fun refresh() {

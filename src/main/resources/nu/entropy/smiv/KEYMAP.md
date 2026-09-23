@@ -20,7 +20,10 @@ selecting text, ...) work as usual.
 - `W` / `S` page up / down, `A` / `D` line start / end.
 - `q` start of the previous word, `e` end of the next word, `Q` end of the previous word, `E` start of the next word.
 - `%` matching bracket or quote.
-- `-` / `_` first / last line inside the surrounding `()`, `[]` or `{}` block.
+- `-` / `_` first / last line inside the surrounding `()`, `[]` or `{}` block. `5-` / `5_` go 50 % into the block
+  from the top / bottom (`1`–`9` for 10–90 %).
+- `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats.
+- `z` centres the line in the view.
 - `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `G` document end, `[n]G` n lines from the bottom.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.
@@ -36,9 +39,17 @@ selecting text, ...) work as usual.
 - `c` change to the line end (like Vim's `C`, takes a count), `C` change from the line start (keeps indentation).
   Both store the deleted text in register `8`.
 - `&` join lines, `o` / `O` open a line below / above.
+- `J` / `K` move the line (or selected lines) down / up, `L` / `H` indent / outdent, with counts.
 - `u` undo (caret and view stay put), `U` revert to the last saved version (one step, so `u` brings the changes back).
 - `.` repeat the last edit, search or replace.
 - Counts: `5x`, `3b`, `3X`, `2Y`, `2R`, `3§`, `2°`, `2c`.
+
+## Selection mode
+
+- `V` starts selecting from the caret; motions (`w a s d`, `q e`, `f`, `/`, `n`, `-`, `g` …) extend the selection.
+- `x` deletes, `y` yanks, `c` / `C` change, `§` / `°` toggle case, `p` / `P` replace the selection. This ends selection
+  mode, as do `V` and `Esc`. The status bar shows `sMiv SELECT`.
+- The same keys work on a selection made with the mouse or Shift+arrows.
 
 ## Yank, paste and registers
 
@@ -54,7 +65,10 @@ selecting text, ...) work as usual.
 ## Search and replace
 
 - `/text` forward, `\text` backward, `,pattern` regex (shown as `~`), then `Enter`.
-- `n` / `N` next / previous match from the caret. Matches are highlighted until `Esc`.
+- Smart case: a search without capitals ignores case (`/foo` finds `Foo`), with capitals it does not.
+- `*` / `#` search the whole word under the caret forward / backward (case-sensitive).
+- `n` / `N` next / previous match from the caret; past the end the search wraps around (`search wrapped`).
+  Matches are highlighted until `Esc`.
 - `Backspace` edits the command line, `Esc` cancels it.
 - `=replacement` steps through the matches of the last search (literal or regex): `Enter` or `.` replaces the
   match at the caret and moves to the next, `n` / `N` skip one, `Esc` stops.
@@ -68,7 +82,8 @@ selecting text, ...) work as usual.
 Inside `!` (automatic), `"`, `'`, `` ` ``, `´`, `(`, `[` or `{`:
 
 - `"y` yanks (register `0` and the clipboard), `"x` deletes (register `8`), `"p` replaces with the clipboard.
-- `" 3y`, `( 3x`, `{ 3p` use only register `3`.
+- `"Y` / `"X` yank / delete including the delimiters, for example `(X` removes `(a, b)`.
+- `" 3y`, `( 3x`, `{ 3p`, `[ 3X` use only register `3`.
 
 ## sMiv menu
 

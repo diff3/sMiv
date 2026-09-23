@@ -2,7 +2,7 @@
 
 Modal editing (NAV/INSERT) for PhpStorm, ported from the [MIV](https://github.com/diff3/miv) VS Code extension.
 
-## Keys (version 0.5)
+## Keys (version 0.6)
 
 sMiv is a layer on top of PhpStorm: in `NAV` typed characters are commands and are never inserted, everything else
 works as usual. `ESC` → `NAV`, `i` / `Space` → `INSERT`, `w a s d` to move, `x b y p` to edit, `/` to search,

@@ -46,7 +46,11 @@ class EngineTest {
         var flash: Effect.Flash? = null
         var registersShown: Effect.ShowRegisters? = null
 
-        fun view() = TextView(text, caret)
+        /** Like the IDE layer, selection mode selects from the anchor to the caret. */
+        fun view(): TextView {
+            val anchor = engine.state.selectAnchor ?: return TextView(text, caret)
+            return TextView(text, caret, minOf(anchor, caret), maxOf(anchor, caret))
+        }
 
         fun apply(effects: List<Effect>) {
             for (effect in effects) {
@@ -486,14 +490,16 @@ class EngineTest {
     }
 
     @Test
-    fun `n and N move between matches and stop at the ends`() {
+    fun `n and N move between matches and wrap around`() {
         run("|foo bar baz bar", "/bar\n")
         assertEquals("foo bar baz |bar", run("foo |bar baz bar", "n").text)
         val end = run("foo bar baz |bar", "n")
-        assertEquals("foo bar baz |bar", end.text)
-        assertEquals(listOf("search reached end"), end.messages)
+        assertEquals("foo |bar baz bar", end.text)
+        assertEquals(listOf("search wrapped"), end.messages)
         assertEquals("foo |bar baz bar", run("foo bar baz |bar", "N").text)
-        assertEquals(listOf("search reached start"), run("foo |bar baz bar", "N").messages)
+        val start = run("foo |bar baz bar", "N")
+        assertEquals("foo bar baz |bar", start.text)
+        assertEquals(listOf("search wrapped"), start.messages)
     }
 
     @Test
@@ -504,9 +510,19 @@ class EngineTest {
     }
 
     @Test
-    fun `forward search without a later match goes to the last match like MIV`() {
-        assertEquals("a b |a", run("a b |a", "/a\n").text)
-        assertEquals("a b |a", run("a b a|", "/a\n").text)
+    fun `search without a later match wraps to the first`() {
+        val result = run("a b |a", "/a\n")
+        assertEquals("|a b a", result.text)
+        assertEquals(listOf("search wrapped"), result.messages)
+        assertEquals("|a b a", run("a b a|", "/a\n").text)
+    }
+
+    @Test
+    fun `smart case ignores case unless the query has capitals`() {
+        assertEquals("x |Foo foo", run("|x Foo foo", "/foo\n").text)
+        assertEquals("x Foo foo |FOO", run("x Foo |foo FOO", "/FOO\n").text)
+        assertEquals("foo |Foo", run("|foo Foo", "/Foo\n").text)
+        assertEquals("a |1b", run("|a 1b", ",\\db\n").text)
     }
 
     @Test
@@ -717,10 +733,10 @@ class EngineTest {
 
     @Test
     fun `custom keys drive commands and the default key stops working`() {
-        engine.layout = KeyLayout(mapOf("LEFT" to 'h', "DELETE_CHAR" to 'z'))
+        engine.layout = KeyLayout(mapOf("LEFT" to 'h', "DELETE_CHAR" to 'j'))
         assertEquals(listOf(Effect.Ide(IdeOp.LEFT, 3)), run("a|b", "3h").ide)
         assertEquals(emptyList<Effect.Ide>(), run("a|b", "a").ide)
-        assertEquals("a|", run("a|b", "z").text)
+        assertEquals("a|", run("a|b", "j").text)
         assertEquals("", engine.commandLine)
     }
 
@@ -731,5 +747,119 @@ class EngineTest {
         assertEquals("h ab |h", run("|h ab h", "/h\n").text)
         run("|x h", "/h")
         assertEquals("/h", engine.commandLine)
+    }
+
+    // ---- selection mode ----
+
+    @Test
+    fun `V selects with motions and x deletes the selection`() {
+        run("|foo bar baz", "V")
+        assertEquals(true, engine.isSelecting)
+        engine.escape()
+        assertEquals(" baz", run("|foo bar baz", "Veex").text.replace("|", ""))
+        assertEquals(false, engine.isSelecting)
+    }
+
+    @Test
+    fun `V twice or escape ends selection mode`() {
+        run("|foo", "VV")
+        assertEquals(false, engine.isSelecting)
+        run("|foo", "V")
+        engine.escape()
+        assertEquals(false, engine.isSelecting)
+    }
+
+    @Test
+    fun `selection works with y, section sign, c and p`() {
+        run("|foo bar", "Vey")
+        assertEquals("foo", clipboard)
+        // The caret stays where the motion left it.
+        assertEquals("FOO| bar", run("|foo bar", "Ve§").text)
+        assertEquals("| bar", run("|foo bar", "Vec").text)
+        assertEquals(Mode.INSERT, engine.state.mode)
+        engine.escape()
+        clipboard = "X"
+        assertEquals("|X bar", run("|foo bar", "Vep").text)
+    }
+
+    @Test
+    fun `selection mode keeps selecting over searches and finds`() {
+        run("|a.b.c", "Vf.")
+        assertEquals(true, engine.isSelecting)
+        assertEquals(0, engine.state.selectAnchor)
+        assertEquals("|.b.c", run("a|.b.c", "x").text)
+    }
+
+    // ---- find character ----
+
+    @Test
+    fun `f and F find characters on the line and semicolon repeats`() {
+        assertEquals("a|,b,c", run("|a,b,c", "f,").text)
+        assertEquals("a,b|,c", run("|a,b,c", "2f,").text)
+        assertEquals("a,b|,c", run("a|,b,c", ";").text)
+        assertEquals("a|,b,c", run("a,b,|c", "2F,").text)
+        assertEquals("a b| c", run("|a b c", "2f ").text)
+        assertEquals("|abc\nx", run("|abc\nx", "fx").text)
+    }
+
+    @Test
+    fun `f takes any character even when it is remapped`() {
+        engine.layout = KeyLayout(mapOf("LEFT" to 'h'))
+        assertEquals("a|h", run("|ah", "fh").text)
+    }
+
+    // ---- search word under caret ----
+
+    @Test
+    fun `star searches the whole word under the caret`() {
+        assertEquals("foo x foox |foo", run("fo|o x foox foo", "*").text)
+        assertEquals("|foo x foox foo", run("foo x foox |foo", "#").text)
+        assertEquals(listOf("no word under caret"), run("a | b", "*").messages)
+    }
+
+    @Test
+    fun `star is case-sensitive and steps with equals`() {
+        assertEquals("foo Foo |foo", run("|foo Foo foo", "*").text)
+        run("|foo Foo foo", "*")
+        assertEquals("foo Foo |bar", run("foo Foo |foo", "=bar\n\n").text)
+    }
+
+    // ---- lines, indent, centre ----
+
+    @Test
+    fun `J K H L move and indent lines through the IDE with counts`() {
+        assertEquals(listOf(Effect.Ide(IdeOp.MOVE_LINE_DOWN, 2)), run("|a", "2J").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.MOVE_LINE_UP, 1)), run("|a", "K").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.INDENT, 3)), run("|a", "3L").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.OUTDENT, 1)), run("|a", "H").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "z").ide)
+        run("|a", "L")
+        assertEquals(Action.INDENT, engine.state.lastCommand?.action)
+    }
+
+    // ---- text objects including delimiters ----
+
+    @Test
+    fun `uppercase text object operations include the delimiters`() {
+        assertEquals("say | now", run("say \"h|i\" now", "\"X").text)
+        assertEquals(Register("\"hi\""), engine.state.registers[8])
+        run("f(a|b)", "(Y")
+        assertEquals("(ab)", clipboard)
+        run("f(a|b)", "( 3Y")
+        assertEquals(Register("(ab)"), engine.state.registers[3])
+    }
+
+    // ---- block percent ----
+
+    @Test
+    fun `digit before dash or underscore goes a percentage into the block`() {
+        val block = "{\n l1\n l2\n l3\n l4\n l5\n}"
+        fun at(line: String) = block.replace(" $line", " |$line")
+        assertEquals(at("l3"), run(block.replace("l1", "|l1"), "5-").text)
+        assertEquals(at("l3"), run(block.replace("l1", "|l1"), "5_").text)
+        assertEquals(at("l2"), run(block.replace("l1", "|l1"), "3-").text)
+        assertEquals(at("l4"), run(block.replace("l1", "|l1"), "3_").text)
+        assertEquals(at("l1"), run(block.replace("l5", "|l5"), "-").text)
+        assertEquals(at("l5"), run(block.replace("l1", "|l1"), "9-").text)
     }
 }
