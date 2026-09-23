@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -22,9 +23,12 @@ kotlin {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.opentest4j:opentest4j:1.3.0")
 
     intellijPlatform {
         local(providers.gradleProperty("platformLocalPath"))
+        // Editor tests (SmivIdeTest) run sMiv in a real, headless editor.
+        testFramework(TestFrameworkType.Platform)
     }
 }
 
