@@ -12,6 +12,7 @@
       <li>Registers 0–9 (9 is the clipboard): <code>2 y</code>, <code>5 3x</code>, <code>2 4y</code>, <code>3p</code>, <code>3P</code>, <code>2v</code></li>
       <li>Search <code>/ \ ,</code> with <b>n N</b>, replace with <code>=</code>, repeat with <b>.</b>, text objects <code>!y "x (p</code>, <b>U</b> revert to saved</li>
       <li>Register viewer <b>v</b>, anchors <b>Alt+Z / Alt+X</b>, sMiv menu from the status bar</li>
+      <li>Custom NAV keys in Settings → Tools → sMiv</li>
     </ul>
     ]]></description>
 
@@ -30,6 +31,8 @@
                                 order="first"/>
         <postStartupActivity implementation="nu.entropy.smiv.SmivStartupActivity"/>
         <notificationGroup id="sMiv" displayType="BALLOON"/>
+        <applicationConfigurable parentId="tools" instance="nu.entropy.smiv.SmivConfigurable"
+                                 id="nu.entropy.smiv.settings" displayName="sMiv"/>
     </extensions>
 
     <actions>
@@ -54,6 +57,9 @@
         <action id="sMiv.NavigateForward" class="nu.entropy.smiv.SmivNavigateForwardAction"
                 text="sMiv: Navigate Forward">
             <keyboard-shortcut keymap="$default" first-keystroke="alt D"/>
+        </action>
+        <action id="sMiv.Find" class="nu.entropy.smiv.SmivFindAction" text="sMiv: Find">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl F"/>
         </action>
     </actions>
 </idea-plugin>

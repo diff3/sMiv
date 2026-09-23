@@ -25,6 +25,7 @@ selecting text, ...) work as usual.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.
 - `Alt+Z` sets an anchor, `Alt+X` jumps to it and then toggles between the anchor and where you jumped from.
+- `Ctrl+F` opens the find bar.
 - Counts work with motions, for example `10s`.
 
 ## Editing
@@ -68,5 +69,10 @@ Inside `!` (automatic), `"`, `'`, `` ` ``, `´`, `(`, `[` or `{`:
 
 ## sMiv menu
 
-Click the status bar item: Registers, Command Stats, Toggle Search Highlight, Change Keybindings (the Alt shortcuts
-are in Settings → Keymap under sMiv), Open KEYMAP.
+Click the status bar item: Registers, Command Stats, Toggle Search Highlight, Change Keybindings, Open KEYMAP.
+
+## Custom keys
+
+Settings → Tools → sMiv (or Change Keybindings in the sMiv menu) lists every `NAV` key by MIV's command name, for
+example `LEFT` or `DELETE_LINE`. Type a new character to move a command; the new key replaces the default one. Digits
+and Space are fixed. The Alt shortcuts are in Settings → Keymap under sMiv.

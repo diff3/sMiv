@@ -49,7 +49,7 @@ object SmivPopups {
             MenuItem("Registers") { showRegistersFor(project) },
             MenuItem("Command Stats") { showStats(project) },
             MenuItem("Toggle Search Highlight") { SmivService.get().toggleSearchHighlight() },
-            MenuItem("Change Keybindings") { ShowSettingsUtil.getInstance().showSettingsDialog(project, "Keymap") },
+            MenuItem("Change Keybindings") { ShowSettingsUtil.getInstance().showSettingsDialog(project, SmivConfigurable::class.java) },
             MenuItem("Open KEYMAP") { showKeymap(project) },
         )
         val step = object : BaseListPopupStep<MenuItem>("sMiv", items) {

@@ -21,6 +21,7 @@ import nu.entropy.smiv.core.Anchors
 import nu.entropy.smiv.core.Command
 import nu.entropy.smiv.core.Effect
 import nu.entropy.smiv.core.Engine
+import nu.entropy.smiv.core.KeyLayout
 import nu.entropy.smiv.core.Mode
 import nu.entropy.smiv.core.TextView
 import java.awt.datatransfer.DataFlavor
@@ -28,7 +29,7 @@ import java.awt.datatransfer.DataFlavor
 /** Application-wide sMiv runtime: one mode for all editors, as in MIV. */
 @Service(Service.Level.APP)
 class SmivService : Disposable {
-    val engine = Engine()
+    val engine = Engine().apply { layout = KeyLayout(SmivSettings.get().overrides) }
 
     /** False after the user turns sMiv off (IdeaVim warning); everything then passes through. */
     var enabled = true

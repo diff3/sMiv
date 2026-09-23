@@ -47,6 +47,9 @@ sealed interface Effect {
  */
 class Engine(val state: SmivState = SmivState()) {
 
+    /** Custom NAV keys from the sMiv settings. */
+    var layout: KeyLayout = KeyLayout.DEFAULT
+
     /** What the status bar shows: the command line (`/foo`) or the keys typed so far (`5 3`). */
     val commandLine: String get() = state.commandLine?.text ?: state.pending.toString()
 
@@ -58,11 +61,19 @@ class Engine(val state: SmivState = SmivState()) {
             (state.commandLine != null || state.pending.isNotEmpty() || (state.replaceRule != null && state.searchVisible))
 
     /** Handle one typed character in NAV mode. Returns no effects in INSERT mode. */
-    fun type(char: Char, view: TextView, clipboard: () -> String?): List<Effect> {
+    fun type(typed: Char, view: TextView, clipboard: () -> String?): List<Effect> {
         if (state.mode != Mode.NAV) return emptyList()
 
         state.commandLine?.let {
-            it.buffer.append(char)
+            it.buffer.append(typed)
+            return emptyList()
+        }
+
+        // The character after `r` is text, not a key.
+        val replacing = state.pending.lastOrNull() == Keys.REPLACE_CHAR
+        val char = if (replacing) typed else layout.translate(typed)
+        if (char == null) {
+            state.pending.clear()
             return emptyList()
         }
 

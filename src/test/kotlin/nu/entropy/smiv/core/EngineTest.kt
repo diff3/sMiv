@@ -680,4 +680,24 @@ class EngineTest {
         assertTrue(stats, stats.contains("LEFT         1"))
         assertTrue(stats, stats.contains("2x  1"))
     }
+
+    // ---- custom keys ----
+
+    @Test
+    fun `custom keys drive commands and the default key stops working`() {
+        engine.layout = KeyLayout(mapOf("LEFT" to 'h', "DELETE_CHAR" to 'z'))
+        assertEquals(listOf(Effect.Ide(IdeOp.LEFT, 3)), run("a|b", "3h").ide)
+        assertEquals(emptyList<Effect.Ide>(), run("a|b", "a").ide)
+        assertEquals("a|", run("a|b", "z").text)
+        assertEquals("", engine.commandLine)
+    }
+
+    @Test
+    fun `text after r and on the command line is not remapped`() {
+        engine.layout = KeyLayout(mapOf("LEFT" to 'h', "REPLACE_CHAR" to 't'))
+        assertEquals("|hbc", run("|abc", "th").text)
+        assertEquals("h ab |h", run("|h ab h", "/h\n").text)
+        run("|x h", "/h")
+        assertEquals("/h", engine.commandLine)
+    }
 }

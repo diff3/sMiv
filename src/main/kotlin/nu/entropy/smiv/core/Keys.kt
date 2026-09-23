@@ -105,3 +105,97 @@ object Keys {
         'O' to Action.OPEN_LINE_ABOVE,
     )
 }
+
+/** One remappable NAV key. [id] uses MIV's token names (keymaps/default.json). */
+data class KeyBinding(val id: String, val defaultKey: Char, val description: String)
+
+/**
+ * The NAV keys the user can move (MIV lets you rebind them in VS Code's keyboard
+ * shortcuts). A custom key replaces the default one, so the default key does nothing
+ * afterwards. Digits and Space are fixed: they are counts, registers and INSERT.
+ */
+class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
+    /** Typed key → the default key the parser understands. */
+    private val translation: Map<Char, Char> =
+        BINDINGS.associate { (overrides[it.id] ?: it.defaultKey) to it.defaultKey }
+
+    /** The key to parse for a typed [char], or null when it is not bound to anything. */
+    fun translate(char: Char): Char? = if (char.isFixed()) char else translation[char]
+
+    companion object {
+        // BINDINGS must be initialised before DEFAULT, which is built from it.
+        val BINDINGS: List<KeyBinding> = listOf(
+            KeyBinding("LEFT", 'a', "Move left"),
+            KeyBinding("RIGHT", 'd', "Move right"),
+            KeyBinding("UP", 'w', "Move up"),
+            KeyBinding("DOWN", 's', "Move down"),
+            KeyBinding("PAGE_UP", 'W', "Page up"),
+            KeyBinding("PAGE_DOWN", 'S', "Page down"),
+            KeyBinding("LINE_START", 'A', "Line start"),
+            KeyBinding("LINE_END", 'D', "Line end"),
+            KeyBinding("WORD_LEFT", 'q', "Start of previous word"),
+            KeyBinding("WORD_RIGHT", 'e', "End of next word"),
+            KeyBinding("WORD_END_LEFT", 'Q', "End of previous word"),
+            KeyBinding("WORD_END_RIGHT", 'E', "Start of next word"),
+            KeyBinding("BLOCK_FIRST_LINE", '-', "First line in block"),
+            KeyBinding("BLOCK_LAST_LINE", '_', "Last line in block"),
+            KeyBinding("JUMP_BRACKET_MATCH", '%', "Matching bracket"),
+            KeyBinding("GOTO_LINE", 'g', "Go to line"),
+            KeyBinding("DOC_MIDDLE", 'm', "Go to document percent"),
+            KeyBinding("DOC_BOTTOM", 'G', "Go to document bottom"),
+            KeyBinding("INSERT", 'i', "Enter INSERT"),
+            KeyBinding("INSERT_LINE_START", 'I', "Line start + INSERT"),
+            KeyBinding("INSERT_LINE_END", 'k', "Line end + INSERT"),
+            KeyBinding("OPEN_LINE_BELOW", 'o', "Open line below"),
+            KeyBinding("OPEN_LINE_ABOVE", 'O', "Open line above"),
+            KeyBinding("DELETE_CHAR", 'x', "Delete character"),
+            KeyBinding("DELETE_WORD", 'X', "Delete word"),
+            KeyBinding("DELETE_LINE", 'b', "Delete line"),
+            KeyBinding("DELETE_TO_LINE_END", 'B', "Delete to line end"),
+            KeyBinding("CHANGE_TO_LINE_END", 'c', "Change to line end"),
+            KeyBinding("CHANGE_TO_LINE_START", 'C', "Change from line start"),
+            KeyBinding("REPLACE_CHAR", 'r', "Replace character"),
+            KeyBinding("REPLACE_WORD", 'R', "Change word"),
+            KeyBinding("TOGGLE_CASE_CHAR", '§', "Toggle case of character"),
+            KeyBinding("TOGGLE_CASE_WORD", '°', "Toggle case of word"),
+            KeyBinding("JOIN_LINE_WITH_NEXT", '&', "Join lines"),
+            KeyBinding("YANK_LINE", 'y', "Yank line"),
+            KeyBinding("YANK_WORD", 'Y', "Yank word"),
+            KeyBinding("PASTE_AFTER", 'p', "Paste before the caret"),
+            KeyBinding("PASTE_BEFORE", 'P', "Paste after the caret"),
+            KeyBinding("SHOW_REGISTERS", 'v', "Register viewer / store clipboard"),
+            KeyBinding("UNDO", 'u', "Undo"),
+            KeyBinding("REVERT_TO_SAVED", 'U', "Revert to saved version"),
+            KeyBinding("REPEAT_ALIAS", '.', "Repeat"),
+            KeyBinding("SEARCH_FORWARD", '/', "Search forward"),
+            KeyBinding("SEARCH_BACKWARD", '\\', "Search backward"),
+            KeyBinding("SEARCH_REGEX", ',', "Regex search"),
+            KeyBinding("SEARCH_NEXT", 'n', "Next match"),
+            KeyBinding("SEARCH_PREVIOUS", 'N', "Previous match"),
+            KeyBinding("REPLACE_MATCHES", '=', "Replace"),
+            KeyBinding("TEXT_OBJECT_AUTO", '!', "Text object: automatic"),
+            KeyBinding("TEXT_OBJECT_DOUBLE_QUOTE", '"', "Text object: \" \""),
+            KeyBinding("TEXT_OBJECT_SINGLE_QUOTE", '\'', "Text object: ' '"),
+            KeyBinding("TEXT_OBJECT_BACKTICK", '`', "Text object: ` `"),
+            KeyBinding("TEXT_OBJECT_ACUTE", '´', "Text object: ´ ´"),
+            KeyBinding("TEXT_OBJECT_PAREN", '(', "Text object: ( )"),
+            KeyBinding("TEXT_OBJECT_BRACKET", '[', "Text object: [ ]"),
+            KeyBinding("TEXT_OBJECT_BRACE", '{', "Text object: { }"),
+        )
+
+        val DEFAULT = KeyLayout()
+
+        private fun Char.isFixed() = this in '0'..'9' || this == ' '
+
+        /** Why [overrides] cannot be used, or null when they are fine. */
+        fun validate(overrides: Map<String, Char>): String? {
+            val used = mutableMapOf<Char, String>()
+            for (binding in BINDINGS) {
+                val key = overrides[binding.id] ?: binding.defaultKey
+                if (key.isFixed()) return "${binding.id}: digits and Space cannot be used"
+                used.put(key, binding.id)?.let { return "'$key' is used by both $it and ${binding.id}" }
+            }
+            return null
+        }
+    }
+}

@@ -133,3 +133,6 @@ class SmivNavigateBackAction : SmivDelegateAction(IdeActions.ACTION_GOTO_BACK)
 
 /** Alt+D: navigate forward. */
 class SmivNavigateForwardAction : SmivDelegateAction(IdeActions.ACTION_GOTO_FORWARD)
+
+/** Ctrl+F: the editor's find bar, as MIV binds it in NAV. */
+class SmivFindAction : SmivDelegateAction(IdeActions.ACTION_FIND)
