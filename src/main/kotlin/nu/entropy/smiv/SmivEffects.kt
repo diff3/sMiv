@@ -175,7 +175,7 @@ object SmivEffects {
     }
 
     /**
-     * `|`: put the caret line in the middle of the view with PhpStorm's own Scroll to
+     * `<`: put the caret line in the middle of the view with PhpStorm's own Scroll to
      * Center. Near the top of a file the view cannot scroll far enough to centre.
      */
     private fun centerCaretLine(editor: Editor, dataContext: DataContext) {

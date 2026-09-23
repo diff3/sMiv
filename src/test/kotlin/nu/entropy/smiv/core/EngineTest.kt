@@ -857,9 +857,9 @@ class EngineTest {
     }
 
     @Test
-    fun `z sets the anchor and Z jumps to it`() {
-        assertEquals(listOf(Effect.Ide(IdeOp.SET_ANCHOR)), run("|a", "z").ide)
-        assertEquals(listOf(Effect.Ide(IdeOp.JUMP_TO_ANCHOR)), run("|a", "Z").ide)
+    fun `Z sets the anchor and z jumps to it`() {
+        assertEquals(listOf(Effect.Ide(IdeOp.SET_ANCHOR)), run("|a", "Z").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.JUMP_TO_ANCHOR)), run("|a", "z").ide)
     }
 
     @Test
@@ -877,7 +877,7 @@ class EngineTest {
         assertEquals(listOf(Effect.Ide(IdeOp.MOVE_LINE_UP, 1)), run("|a", "K").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.INDENT, 3)), run("|a", "3L").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.OUTDENT, 1)), run("|a", "H").ide)
-        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "|").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "<").ide)
         run("|a", "L")
         assertEquals(Action.INDENT, engine.state.lastCommand?.action)
     }

@@ -24,11 +24,11 @@ selecting text, ...) work as usual.
   from the top / bottom (`1`–`9` for 10–90 %; two digits such as `15-` give that percentage).
 - `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats. `n` / `N` go to the
   next / previous one until the next search.
-- `|` centres the line in the view (Option+7 on a Swedish Mac, AltGr+< on Linux).
+- `<` centres the line in the view (the key left of Z on a Swedish keyboard).
 - `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `15m` 15 %, `G` document end, `[n]G` n lines from the bottom.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.
-- `z` (or `Alt+Z`) sets an anchor, `Z` (or `Alt+X`) jumps to it and then toggles between the anchor and where you
+- `Z` (or `Alt+Z`) sets an anchor, `z` (or `Alt+X`) jumps to it and then toggles between the anchor and where you
   jumped from.
 - `Ctrl+F` opens the find bar.
 - Counts work with motions, for example `10s`.
