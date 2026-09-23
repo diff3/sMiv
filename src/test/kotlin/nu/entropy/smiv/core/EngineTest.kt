@@ -796,57 +796,32 @@ class EngineTest {
     }
 
     @Test
-    fun `selection mode keeps selecting over searches and finds`() {
-        run("|a.b.c", "Vf.")
+    fun `selection mode keeps selecting over searches`() {
+        run("|a.b.a", "Vf")
         assertEquals(true, engine.isSelecting)
         assertEquals(0, engine.state.selectAnchor)
-        assertEquals("|.b.c", run("a|.b.c", "x").text)
+        assertEquals("|a", run("a.b.|a", "x").text)
     }
 
-    // ---- find character ----
+    // ---- search character under caret ----
 
     @Test
-    fun `f and F find characters and semicolon repeats`() {
-        assertEquals("a|,b,c", run("|a,b,c", "f,").text)
-        assertEquals("a,b|,c", run("|a,b,c", "2f,").text)
-        assertEquals("a,b|,c", run("a|,b,c", ";").text)
-        assertEquals("a|,b,c", run("a,b,|c", "2F,").text)
-        assertEquals("a b| c", run("|a b c", "2f ").text)
-    }
-
-    @Test
-    fun `f searches the whole document and wraps around`() {
-        assertEquals("abc\n|x", run("|abc\nx", "fx").text)
-        assertEquals("|x\nabc", run("x\nab|c", "Fx").text)
-        val wrapped = run("a,b|,c", "2f,")
-        assertEquals("a|,b,c", wrapped.text)
-        assertEquals(listOf("search wrapped"), wrapped.messages)
-        assertEquals(listOf("not found: q"), run("|abc", "fq").messages)
+    fun `f and F search the character under the caret and n N step`() {
+        val result = run("|a,b,a,c", "f")
+        assertEquals("a,b,|a,c", result.text)
+        assertEquals(Effect.Highlight(listOf(Match(0, 1), Match(4, 5)), 1), result.highlight)
+        assertEquals("|a,b,a,c", run("a,b,|a,c", "n").text)
+        assertEquals(listOf("search wrapped"), run("a,b,|a,c", "n").messages)
+        assertEquals("a,b,|a,c", run("|a,b,a,c", "N").text)
+        assertEquals("a|,b,a,c", run("a,b|,a,c", "F").text)
+        assertEquals("a\n|a", run("|a\na", "f").text)
     }
 
     @Test
-    fun `after f, n and N go to the next and previous same character`() {
-        run("|a,b,c,d", "f,")
-        assertEquals("a,b|,c,d", run("a|,b,c,d", "n").text)
-        assertEquals("a|,b,c,d", run("a,b|,c,d", "N").text)
-        assertEquals("a,b,c|,d", run("a,b,c,|d", "N").text)
-        assertEquals("a,b\n|,c", run("a|,b\n,c", "n").text)
-    }
-
-    @Test
-    fun `a search after f makes n and N follow the search again`() {
-        run("|x,y x,y", "f,")
-        run("|x,y x,y", "/x\n")
-        assertEquals("x,y |x,y", run("|x,y x,y", "n").text)
-        // A new f switches n back to the character.
-        run("|x,y x,y", "f,")
-        assertEquals("x,y x|,y", run("x|,y x,y", "n").text)
-    }
-
-    @Test
-    fun `f takes any character even when it is remapped`() {
-        engine.layout = KeyLayout(mapOf("LEFT" to 'h'))
-        assertEquals("a|h", run("|ah", "fh").text)
+    fun `f is case-sensitive and needs a character`() {
+        assertEquals("aA|a", run("|aAa", "f").text)
+        assertEquals(listOf("no character under caret"), run("ab|\nc", "f").messages)
+        assertEquals(listOf("no character under caret"), run("ab|", "f").messages)
     }
 
     // ---- search word under caret ----

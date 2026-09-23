@@ -140,12 +140,10 @@ class ParserTest {
     }
 
     @Test
-    fun `f and F take a character and a count`() {
-        partial("f")
-        partial("3F")
-        assertEquals(Command(Action.FIND_CHAR, 1, false, "f,", char = ','), complete("f,"))
-        assertEquals(Command(Action.FIND_CHAR_BACKWARD, 3, true, "3F(", char = '('), complete("3F("))
-        invalid("fab")
+    fun `f and F search the character under the caret`() {
+        assertEquals(Action.SEARCH_CHAR_FORWARD, complete("f").action)
+        assertEquals(Action.SEARCH_CHAR_BACKWARD, complete("F").action)
+        invalid(";")
     }
 
     @Test
@@ -163,7 +161,6 @@ class ParserTest {
     @Test
     fun `new single keys and text objects with delimiters`() {
         assertEquals(Action.TOGGLE_SELECT, complete("V").action)
-        assertEquals(Action.REPEAT_FIND, complete(";").action)
         assertEquals(Action.SEARCH_WORD_FORWARD, complete("*").action)
         assertEquals(Action.SEARCH_WORD_BACKWARD, complete("#").action)
         assertEquals(Command(Action.MOVE_LINE_DOWN, 2, true, "2J"), complete("2J"))

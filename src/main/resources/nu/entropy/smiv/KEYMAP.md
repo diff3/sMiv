@@ -22,8 +22,6 @@ selecting text, ...) work as usual.
 - `%` matching bracket or quote.
 - `-` / `_` first / last line inside the surrounding `()`, `[]` or `{}` block. `5-` / `5_` go 50 % into the block
   from the top / bottom (`1`–`9` for 10–90 %; two digits such as `15-` give that percentage).
-- `f<char>` / `F<char>` next / previous `<char>` anywhere in the file (`3f,` the third one), wrapping around at the
-  end. `;` repeats; `n` / `N` go to the next / previous one until the next search.
 - `<` goes to the middle of the text on the line (indentation and trailing spaces not counted); `3<` 30 %, `25<` 25 %.
   `>` is the middle of the document, the same as `m` (`3>` 30 %, `25>` 25 %).
 - `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `15m` 15 %, `G` document end, `[n]G` n lines from the bottom.
@@ -49,7 +47,7 @@ selecting text, ...) work as usual.
 
 ## Selection mode
 
-- `V` starts selecting from the caret; motions (`w a s d`, the arrow keys, `q e`, `f`, `/`, `n`, `-`, `g` …) extend
+- `V` starts selecting from the caret; motions (`w a s d`, the arrow keys, `q e`, `f`, `*`, `/`, `n`, `-`, `g` …) extend
   the selection.
 - `x` deletes, `y` yanks, `c` / `C` change, `§` / `°` toggle case, `p` / `P` replace the selection. This ends selection
   mode, as do `V` and `Esc`. The status bar shows `sMiv SELECT`.
@@ -70,7 +68,9 @@ selecting text, ...) work as usual.
 
 - `/text` forward, `\text` backward, `,pattern` regex (shown as `~`), then `Enter`.
 - Smart case: a search without capitals ignores case (`/foo` finds `Foo`), with capitals it does not.
+- `f` / `F` search the character under the caret forward / backward (case-sensitive).
 - `*` / `#` search the whole word under the caret forward / backward (case-sensitive).
+- `/` searches for anything you type, even a single character.
 - `n` / `N` next / previous match from the caret; past the end the search wraps around (`search wrapped`).
   Matches are highlighted until `Esc`.
 - `Backspace` edits the command line, `Esc` cancels it.

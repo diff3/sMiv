@@ -19,7 +19,7 @@ enum class Action(val countable: Boolean = false) {
     GOTO_LINE, GOTO_PERCENT, DOC_END, GOTO_LINE_FROM_BOTTOM,
     UNDO, REVERT_TO_SAVED, INSERT, INSERT_LINE_START, INSERT_LINE_END, OPEN_LINE_BELOW, OPEN_LINE_ABOVE,
     REPEAT, SEARCH_NEXT, SEARCH_PREVIOUS,
-    TOGGLE_SELECT, FIND_CHAR(true), FIND_CHAR_BACKWARD(true), REPEAT_FIND(true),
+    TOGGLE_SELECT, SEARCH_CHAR_FORWARD, SEARCH_CHAR_BACKWARD,
     SEARCH_WORD_FORWARD, SEARCH_WORD_BACKWARD,
     MOVE_LINE_DOWN(true), MOVE_LINE_UP(true), INDENT(true), OUTDENT(true), LINE_PERCENT,
     SET_ANCHOR, JUMP_TO_ANCHOR,
@@ -41,18 +41,14 @@ object Keys {
     const val DOC_BOTTOM = 'G'
     const val DELETE_CHAR = 'x'
     const val YANK_LINE = 'y'
-    const val FIND_CHAR = 'f'
-    const val FIND_CHAR_BACKWARD = 'F'
     const val LINE_MIDDLE = '<'
     const val DOC_MIDDLE_ALIAS = '>'
     const val BLOCK_FIRST_LINE = '-'
     const val BLOCK_LAST_LINE = '_'
 
-    /** Keys whose next typed character is an argument (`rX`, `fX`, `FX`), not a key. */
+    /** Keys whose next typed character is an argument (`rX`), not a key. */
     val CHAR_ARGUMENT_KEYS: Map<Char, Action> = mapOf(
         REPLACE_CHAR to Action.REPLACE_CHAR,
-        FIND_CHAR to Action.FIND_CHAR,
-        FIND_CHAR_BACKWARD to Action.FIND_CHAR_BACKWARD,
     )
 
     /** Commands that move the caret; in selection mode (`V`) they extend the selection. */
@@ -63,7 +59,7 @@ object Keys {
         Action.JUMP_BRACKET_MATCH, Action.GOTO_LINE, Action.GOTO_PERCENT, Action.DOC_END,
         Action.GOTO_LINE_FROM_BOTTOM, Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS, Action.SEARCH_FORWARD,
         Action.SEARCH_BACKWARD, Action.SEARCH_REGEX, Action.SEARCH_WORD_FORWARD, Action.SEARCH_WORD_BACKWARD,
-        Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD, Action.REPEAT_FIND, Action.LINE_PERCENT,
+        Action.SEARCH_CHAR_FORWARD, Action.SEARCH_CHAR_BACKWARD, Action.LINE_PERCENT,
     )
 
     /** Keys that open the command line when no command is pending. */
@@ -133,7 +129,8 @@ object Keys {
         'n' to Action.SEARCH_NEXT,
         'N' to Action.SEARCH_PREVIOUS,
         'V' to Action.TOGGLE_SELECT,
-        ';' to Action.REPEAT_FIND,
+        'f' to Action.SEARCH_CHAR_FORWARD,
+        'F' to Action.SEARCH_CHAR_BACKWARD,
         '*' to Action.SEARCH_WORD_FORWARD,
         '#' to Action.SEARCH_WORD_BACKWARD,
         'J' to Action.MOVE_LINE_DOWN,
@@ -212,9 +209,8 @@ class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
             KeyBinding("REVERT_TO_SAVED", 'U', "Revert to saved version"),
             KeyBinding("REPEAT_ALIAS", '.', "Repeat"),
             KeyBinding("TOGGLE_SELECT", 'V', "Selection mode"),
-            KeyBinding("FIND_CHAR", 'f', "Find character forward"),
-            KeyBinding("FIND_CHAR_BACKWARD", 'F', "Find character backward"),
-            KeyBinding("REPEAT_FIND", ';', "Repeat character find"),
+            KeyBinding("SEARCH_CHAR_FORWARD", 'f', "Search character under caret forward"),
+            KeyBinding("SEARCH_CHAR_BACKWARD", 'F', "Search character under caret backward"),
             KeyBinding("SEARCH_WORD_FORWARD", '*', "Search word under caret forward"),
             KeyBinding("SEARCH_WORD_BACKWARD", '#', "Search word under caret backward"),
             KeyBinding("MOVE_LINE_DOWN", 'J', "Move line down"),

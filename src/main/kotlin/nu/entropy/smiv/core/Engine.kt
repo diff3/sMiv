@@ -73,7 +73,7 @@ class Engine(val state: SmivState = SmivState()) {
             return emptyList()
         }
 
-        // The character after `r`, `f` and `F` is text, not a key.
+        // The character after `r` is text, not a key.
         val isArgument = state.pending.lastOrNull() in Keys.CHAR_ARGUMENT_KEYS
         val char = if (isArgument) typed else layout.translate(typed)
         if (char == null) {
@@ -264,25 +264,16 @@ class Engine(val state: SmivState = SmivState()) {
             Action.SEARCH_REGEX -> typedSearch(command.text.orEmpty(), view, forward = true, regex = true)
             Action.SEARCH_WORD_FORWARD -> searchWord(view, forward = true)
             Action.SEARCH_WORD_BACKWARD -> searchWord(view, forward = false)
-            Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS -> {
-                val forward = command.action == Action.SEARCH_NEXT
-                val find = state.lastFind
-                // After `f` / `F`, `n` / `N` go to the next / previous same character.
-                if (state.nRepeatsFind && find != null) findChar(view, find.first, forward, 1) else searchAgain(view, forward)
-            }
+            Action.SEARCH_NEXT -> searchAgain(view, forward = true)
+            Action.SEARCH_PREVIOUS -> searchAgain(view, forward = false)
+            Action.SEARCH_CHAR_FORWARD -> searchChar(view, forward = true)
+            Action.SEARCH_CHAR_BACKWARD -> searchChar(view, forward = false)
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
             Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
             Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND ->
                 textObject(command, view, clipboard)
 
             Action.TOGGLE_SELECT -> toggleSelect(view)
-            Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD -> {
-                val char = command.char ?: return emptyList()
-                state.lastFind = char to (command.action == Action.FIND_CHAR)
-                state.nRepeatsFind = true
-                findChar(view, char, command.action == Action.FIND_CHAR, count)
-            }
-            Action.REPEAT_FIND -> state.lastFind?.let { (char, forward) -> findChar(view, char, forward, count) }.orEmpty()
             Action.MOVE_LINE_DOWN -> ide(IdeOp.MOVE_LINE_DOWN, count)
             Action.MOVE_LINE_UP -> ide(IdeOp.MOVE_LINE_UP, count)
             Action.INDENT -> ide(IdeOp.INDENT, count)
@@ -516,7 +507,6 @@ class Engine(val state: SmivState = SmivState()) {
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
 
         state.lastSearch = query
-        state.nRepeatsFind = false
         val firstAfter = if (includeCaret) view.caret else view.caret + 1
         return showNearest(matches, view, forward, firstAfter)
     }
@@ -665,7 +655,7 @@ class Engine(val state: SmivState = SmivState()) {
         }
     }
 
-    // ---- selection mode, find character ----
+    // ---- selection mode, search character ----
 
     private fun usesSelection(command: Command, view: TextView) = !command.explicitCount && view.hasSelection
     private fun selectionStart(view: TextView) = minOf(view.selectionStart, view.selectionEnd)
@@ -695,11 +685,10 @@ class Engine(val state: SmivState = SmivState()) {
         return deleteRange(selectionStart(view), selectionEnd(view), view.text)
     }
 
-    /** `f` / `F` / `;` / `n` / `N`: jump to the [count]th [char] in the document, wrapping around. */
-    private fun findChar(view: TextView, char: Char, forward: Boolean, count: Int): List<Effect> {
-        val (target, wrapped) = TextOps.findChar(view.text, view.caret, char, forward, count)
-            ?: return listOf(Effect.Message("not found: $char"))
-        val move = Effect.MoveCaret(target)
-        return if (wrapped) listOf(move, Effect.Message("search wrapped")) else listOf(move)
+    /** `f` / `F`: search the character under the caret forward / backward (case-sensitive); `n` / `N` step. */
+    private fun searchChar(view: TextView, forward: Boolean): List<Effect> {
+        val char = view.text.getOrNull(view.caret)
+        if (char == null || char == '\n') return listOf(Effect.Message("no character under caret"))
+        return search(SearchQuery(char.toString(), regex = false), view, forward)
     }
 }
