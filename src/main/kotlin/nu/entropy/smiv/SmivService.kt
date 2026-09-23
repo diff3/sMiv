@@ -47,10 +47,17 @@ class SmivService : Disposable {
         return if (extra.isEmpty()) base else "$base  $extra"
     }
 
-    fun handleTyped(editor: Editor, char: Char, dataContext: DataContext) {
+    fun handleTyped(editor: Editor, char: Char, dataContext: DataContext) =
+        run(editor, dataContext) { view -> engine.type(char, view, ::readClipboard) }
+
+    fun paragraph(editor: Editor, dataContext: DataContext, forward: Boolean) =
+        run(editor, dataContext) { view -> engine.paragraph(view, forward) }
+
+    /** Snapshot the primary caret, let the engine decide, then apply its effects. */
+    private fun run(editor: Editor, dataContext: DataContext, command: (TextView) -> List<Effect>) {
         val caret = editor.caretModel.primaryCaret
         val view = TextView(editor.document.immutableCharSequence, caret.offset, caret.selectionStart, caret.selectionEnd)
-        val effects = engine.type(char, view, ::readClipboard)
+        val effects = command(view)
         SmivEffects.apply(editor, dataContext, effects.filterNot { it is Effect.Message })
         effects.filterIsInstance<Effect.Message>().lastOrNull()?.let { showMessage(it.text) }
         refresh()
@@ -58,6 +65,11 @@ class SmivService : Disposable {
 
     fun toNav() {
         engine.escape()
+        refresh()
+    }
+
+    fun cancelPending() {
+        engine.cancelPending()
         refresh()
     }
 

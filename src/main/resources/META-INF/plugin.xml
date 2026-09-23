@@ -7,7 +7,9 @@
     <ul>
       <li><b>ESC</b> NAV mode, <b>i</b> / <b>Space</b> INSERT mode</li>
       <li><b>w a s d</b>, <b>W A S D</b>, <b>q e Q E</b> movement, with counts (<code>10s</code>)</li>
-      <li><b>x b y p P u o O</b> editing</li>
+      <li><b>x X b B y Y p P u o O I k r R - _ &amp; % § °</b> editing</li>
+      <li><b>g m G</b> goto, <b>Alt+Q/E</b> paragraphs, <b>Alt+A/D</b> navigate back/forward</li>
+      <li>Registers 0–9 (9 is the clipboard): <code>5 3x</code>, <code>2 4y</code>, <code>3p</code>, <code>3P</code>, <code>2v</code></li>
     </ul>
     ]]></description>
 
@@ -24,4 +26,23 @@
         <postStartupActivity implementation="nu.entropy.smiv.SmivStartupActivity"/>
         <notificationGroup id="sMiv" displayType="BALLOON"/>
     </extensions>
+
+    <actions>
+        <action id="sMiv.ParagraphBackward" class="nu.entropy.smiv.SmivParagraphBackwardAction"
+                text="sMiv: Previous Paragraph">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt Q"/>
+        </action>
+        <action id="sMiv.ParagraphForward" class="nu.entropy.smiv.SmivParagraphForwardAction"
+                text="sMiv: Next Paragraph">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt E"/>
+        </action>
+        <action id="sMiv.NavigateBack" class="nu.entropy.smiv.SmivNavigateBackAction"
+                text="sMiv: Navigate Back">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt A"/>
+        </action>
+        <action id="sMiv.NavigateForward" class="nu.entropy.smiv.SmivNavigateForwardAction"
+                text="sMiv: Navigate Forward">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt D"/>
+        </action>
+    </actions>
 </idea-plugin>

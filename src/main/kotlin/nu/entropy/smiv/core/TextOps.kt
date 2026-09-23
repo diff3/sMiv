@@ -1,0 +1,222 @@
+package nu.entropy.smiv.core
+
+/** Pure text helpers. Documents use `\n` as the only line separator. */
+object TextOps {
+    private const val WORD_SEPARATORS = "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?"
+
+    // ---- lines ----
+
+    fun lineStart(text: CharSequence, offset: Int): Int {
+        var i = offset.coerceIn(0, text.length)
+        while (i > 0 && text[i - 1] != '\n') i--
+        return i
+    }
+
+    fun lineEnd(text: CharSequence, offset: Int): Int {
+        var i = offset.coerceIn(0, text.length)
+        while (i < text.length && text[i] != '\n') i++
+        return i
+    }
+
+    /** Start of the line [lines] lines below the one containing [offset], clamped to the last line. */
+    fun lineStartAfter(text: CharSequence, offset: Int, lines: Int): Int {
+        var start = lineStart(text, offset)
+        repeat(lines) {
+            val end = lineEnd(text, start)
+            if (end >= text.length) return start
+            start = end + 1
+        }
+        return start
+    }
+
+    /** Line table for commands that address lines by number. */
+    class Lines(private val text: CharSequence) {
+        private val starts: IntArray = buildList {
+            add(0)
+            for (i in text.indices) if (text[i] == '\n') add(i + 1)
+        }.toIntArray()
+
+        val count: Int get() = starts.size
+        val last: Int get() = starts.size - 1
+
+        fun start(line: Int): Int = starts[line]
+        fun end(line: Int): Int = if (line < last) starts[line + 1] - 1 else text.length
+        fun isBlank(line: Int): Boolean = (start(line) until end(line)).all { text[it].isWhitespace() }
+
+        fun lineOf(offset: Int): Int {
+            val index = starts.binarySearch(offset.coerceIn(0, text.length))
+            return if (index >= 0) index else -index - 2
+        }
+
+        /** Offset on [line] at [column], clamped to the line's length. */
+        fun offsetAt(line: Int, column: Int): Int = start(line) + column.coerceIn(0, end(line) - start(line))
+    }
+
+    // ---- words ----
+
+    // Word classes mirror VS Code's defaults: whitespace, separators, and everything else.
+    private fun charClass(c: Char): Int = when {
+        c.isWhitespace() -> 0
+        c in WORD_SEPARATORS -> 1
+        else -> 2
+    }
+
+    private fun isWordStart(text: CharSequence, p: Int): Boolean =
+        p < text.length && charClass(text[p]) != 0 && (p == 0 || charClass(text[p - 1]) != charClass(text[p]))
+
+    private fun isWordEnd(text: CharSequence, p: Int): Boolean =
+        p > 0 && charClass(text[p - 1]) != 0 && (p == text.length || charClass(text[p]) != charClass(text[p - 1]))
+
+    /** `q`: start of the previous word. */
+    fun wordLeft(text: CharSequence, offset: Int): Int =
+        ((offset - 1) downTo 0).firstOrNull { isWordStart(text, it) } ?: 0
+
+    /** `e`: end of the next word. */
+    fun wordEndRight(text: CharSequence, offset: Int): Int =
+        ((offset + 1)..text.length).firstOrNull { isWordEnd(text, it) } ?: text.length
+
+    /** `Q`: end of the previous word. */
+    fun wordEndLeft(text: CharSequence, offset: Int): Int =
+        ((offset - 1) downTo 0).firstOrNull { isWordEnd(text, it) } ?: 0
+
+    /** `E`: start of the next word. */
+    fun wordStartRight(text: CharSequence, offset: Int): Int =
+        ((offset + 1)..text.length).firstOrNull { isWordStart(text, it) } ?: text.length
+
+    /** End offset after [count] `e` steps from [offset]. */
+    fun wordsEnd(text: CharSequence, offset: Int, count: Int): Int {
+        var end = offset
+        repeat(count) { end = wordEndRight(text, end) }
+        return end
+    }
+
+    /**
+     * Range for `R` and `°`: from the start of the word at the caret (or the next
+     * word) over [count] words. Null when there is no word to act on.
+     */
+    fun wordOperationRange(text: CharSequence, offset: Int, count: Int): IntRange? {
+        val inWord = (offset < text.length && charClass(text[offset]) == 2) ||
+            (offset > 0 && charClass(text[offset - 1]) == 2)
+        val start = if (inWord) {
+            var i = offset
+            while (i > 0 && charClass(text[i - 1]) == 2) i--
+            i
+        } else {
+            wordStartRight(text, offset).takeIf { it != offset && it < text.length } ?: return null
+        }
+        val end = wordsEnd(text, start, count)
+        return if (end > start) start until end else null
+    }
+
+    fun toggleCase(value: CharSequence): String = buildString(value.length) {
+        for (c in value) append(if (c.isUpperCase()) c.lowercaseChar() else c.uppercaseChar())
+    }
+
+    // ---- paragraphs (Alt+Q / Alt+E) ----
+
+    /** Start of the next or previous paragraph; null when there is none forward. */
+    fun paragraphTarget(text: CharSequence, offset: Int, forward: Boolean): Int? {
+        val lines = Lines(text)
+        var line = lines.lineOf(offset)
+
+        if (forward) {
+            if (!lines.isBlank(line)) while (line <= lines.last && !lines.isBlank(line)) line++
+            while (line <= lines.last && lines.isBlank(line)) line++
+            return if (line > lines.last) null else lines.start(line)
+        }
+
+        if (!lines.isBlank(line)) while (line >= 0 && !lines.isBlank(line)) line--
+        while (line >= 0 && lines.isBlank(line)) line--
+        if (line < 0) return 0
+        while (line > 0 && !lines.isBlank(line - 1)) line--
+        return lines.start(line)
+    }
+
+    // ---- bracket matching (`%`, port of MIV's motionActions.ts) ----
+
+    private val OPEN_TO_CLOSE = linkedMapOf(
+        '"' to '"', '\'' to '\'', '`' to '`', '´' to '´', '(' to ')', '[' to ']', '{' to '}', '<' to '>',
+    )
+    private val CLOSE_TO_OPEN = OPEN_TO_CLOSE.entries.associate { (open, close) -> close to open }
+
+    private fun isEscaped(text: CharSequence, index: Int): Boolean {
+        var backslashes = 0
+        var i = index - 1
+        while (i >= 0 && text[i] == '\\') {
+            backslashes++
+            i--
+        }
+        return backslashes % 2 == 1
+    }
+
+    fun findMatchingBracket(text: CharSequence, offset: Int): Int? {
+        if (offset < text.length) matchOnBracket(text, offset)?.let { return it }
+        if (offset > 0) matchOnBracket(text, offset - 1)?.let { return it }
+        return enclosingClose(text, offset)
+    }
+
+    private fun matchOnBracket(text: CharSequence, offset: Int): Int? {
+        val char = text[offset]
+        OPEN_TO_CLOSE[char]?.let { close ->
+            return if (close == char) symmetricPartner(text, offset, char) else scanForward(text, offset, char, close)
+        }
+        CLOSE_TO_OPEN[char]?.let { open -> return scanBackward(text, offset, open, char) }
+        return null
+    }
+
+    /** Quote-like delimiters pair up in document order. */
+    private fun symmetricPartner(text: CharSequence, offset: Int, char: Char): Int? {
+        val positions = text.indices.filter { text[it] == char && !isEscaped(text, it) }
+        val index = positions.indexOf(offset)
+        if (index < 0) return null
+        return if (index % 2 == 0) positions.getOrNull(index + 1) else positions[index - 1]
+    }
+
+    private fun scanForward(text: CharSequence, start: Int, open: Char, close: Char): Int? {
+        if (open == close) {
+            return ((start + 1) until text.length).firstOrNull { text[it] == close && !isEscaped(text, it) }
+        }
+        var depth = 0
+        for (i in start until text.length) {
+            when (text[i]) {
+                open -> depth++
+                close -> if (--depth == 0) return i
+            }
+        }
+        return null
+    }
+
+    private fun scanBackward(text: CharSequence, start: Int, open: Char, close: Char): Int? {
+        if (open == close) {
+            return ((start - 1) downTo 0).firstOrNull { text[it] == open && !isEscaped(text, it) }
+        }
+        var depth = 0
+        for (i in start downTo 0) {
+            when (text[i]) {
+                close -> depth++
+                open -> if (--depth == 0) return i
+            }
+        }
+        return null
+    }
+
+    /** Not on a bracket: jump to the close of the innermost pair around the cursor. */
+    private fun enclosingClose(text: CharSequence, offset: Int): Int? {
+        var bestOpen = -1
+        var bestClose = -1
+        for ((open, close) in OPEN_TO_CLOSE) {
+            for (openOffset in (offset - 1) downTo 0) {
+                if (text[openOffset] != open) continue
+                if (open == close && isEscaped(text, openOffset)) continue
+                val closeOffset = scanForward(text, openOffset, open, close) ?: continue
+                if (!(openOffset < offset && offset < closeOffset)) continue
+                if (openOffset > bestOpen) {
+                    bestOpen = openOffset
+                    bestClose = closeOffset
+                }
+                break
+            }
+        }
+        return bestClose.takeIf { it >= 0 }
+    }
+}

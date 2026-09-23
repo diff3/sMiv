@@ -1,12 +1,19 @@
 package nu.entropy.smiv
 
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.editor.Caret
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.actionSystem.ActionPlan
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler
 import com.intellij.openapi.editor.actionSystem.TypedActionHandlerEx
+import com.intellij.openapi.project.DumbAware
 import nu.entropy.smiv.core.Mode
 
 private fun interceptsNav(editor: Editor): Boolean {
@@ -43,12 +50,54 @@ class SmivEscapeHandler(private val original: EditorActionHandler) : EditorActio
     }
 }
 
-/** Enter does nothing in NAV (MIV behaviour); lookups handle Enter before this runs. */
+/** Enter only cancels a half-typed command in NAV (MIV behaviour); lookups handle Enter before this runs. */
 class SmivEnterHandler(private val original: EditorActionHandler) : EditorActionHandler() {
     override fun isEnabledForCaret(editor: Editor, caret: Caret, dataContext: DataContext?): Boolean =
         interceptsNav(editor) || original.isEnabled(editor, caret, dataContext)
 
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
-        if (!interceptsNav(editor)) original.execute(editor, caret, dataContext)
+        if (interceptsNav(editor)) SmivService.get().cancelPending() else original.execute(editor, caret, dataContext)
     }
 }
+
+/** NAV-only shortcut actions. Disabled outside NAV so the key types normally (e.g. Option+Q → œ). */
+abstract class SmivNavAction : AnAction(), DumbAware {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val editor = e.getData(CommonDataKeys.EDITOR)
+        e.presentation.isEnabled = editor != null && interceptsNav(editor)
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val editor = e.getData(CommonDataKeys.EDITOR) ?: return
+        if (interceptsNav(editor)) perform(editor, e)
+    }
+
+    protected abstract fun perform(editor: Editor, e: AnActionEvent)
+}
+
+/** Alt+Q */
+class SmivParagraphBackwardAction : SmivNavAction() {
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().paragraph(editor, e.dataContext, forward = false)
+}
+
+/** Alt+E */
+class SmivParagraphForwardAction : SmivNavAction() {
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().paragraph(editor, e.dataContext, forward = true)
+}
+
+/** Runs a platform action, like MIV's `miv.executeBuiltin`. */
+abstract class SmivDelegateAction(private val actionId: String) : SmivNavAction() {
+    override fun perform(editor: Editor, e: AnActionEvent) {
+        SmivService.get().cancelPending()
+        val action = ActionManager.getInstance().getAction(actionId) ?: return
+        ActionManager.getInstance().tryToExecute(action, e.inputEvent, editor.contentComponent, e.place, true)
+    }
+}
+
+/** Alt+A: navigate back. */
+class SmivNavigateBackAction : SmivDelegateAction(IdeActions.ACTION_GOTO_BACK)
+
+/** Alt+D: navigate forward. */
+class SmivNavigateForwardAction : SmivDelegateAction(IdeActions.ACTION_GOTO_FORWARD)

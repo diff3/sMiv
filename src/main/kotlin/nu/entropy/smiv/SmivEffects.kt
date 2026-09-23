@@ -32,7 +32,10 @@ object SmivEffects {
         IdeOp.LINE_END to IdeActions.ACTION_EDITOR_MOVE_LINE_END,
         IdeOp.NEW_LINE_BELOW to IdeActions.ACTION_EDITOR_START_NEW_LINE,
         IdeOp.NEW_LINE_ABOVE to "EditorStartNewLineBefore",
+        IdeOp.JOIN_LINES to IdeActions.ACTION_EDITOR_JOIN_LINES,
     )
+
+    private val WRITE_OPS = setOf(IdeOp.NEW_LINE_BELOW, IdeOp.NEW_LINE_ABOVE, IdeOp.JOIN_LINES)
 
     fun apply(editor: Editor, dataContext: DataContext, effects: List<Effect>) {
         for (effect in effects) {
@@ -74,7 +77,7 @@ object SmivEffects {
         val actionId = ACTION_IDS[effect.op] ?: return
         val handler = EditorActionManager.getInstance().getActionHandler(actionId)
         val caret = editor.caretModel.primaryCaret
-        val writes = effect.op == IdeOp.NEW_LINE_BELOW || effect.op == IdeOp.NEW_LINE_ABOVE
+        val writes = effect.op in WRITE_OPS
         repeat(effect.times) {
             if (writes) {
                 if (!editor.document.isWritable) return

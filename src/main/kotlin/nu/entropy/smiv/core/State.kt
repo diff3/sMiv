@@ -11,15 +11,12 @@ class SmivState {
     /** Keys typed so far for the current NAV command, shown in the status bar. */
     val pending = StringBuilder()
 
-    /** Registers 0..9. MVP writes 0 (yank) and 8 (delete); reading them comes in phase 2. */
-    val registers: Array<Register> = Array(10) { Register() }
-
-    fun store(register: Int, text: String, linewise: Boolean) {
-        registers[register] = Register(text, linewise)
-    }
+    /** Registers 0..8. Register 9 is the system clipboard itself, see [Engine]. */
+    val registers: Array<Register> = Array(CLIPBOARD_REGISTER) { Register() }
 
     companion object {
         const val YANK_REGISTER = 0
         const val DELETE_REGISTER = 8
+        const val CLIPBOARD_REGISTER = 9
     }
 }
