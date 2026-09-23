@@ -849,6 +849,20 @@ class EngineTest {
     }
 
     @Test
+    fun `n and N follow star and hash`() {
+        run("|foo x foo y foo", "*")
+        assertEquals("foo x foo y |foo", run("foo x |foo y foo", "n").text)
+        run("foo x foo y |foo", "#")
+        assertEquals("|foo x foo y foo", run("foo x |foo y foo", "N").text)
+    }
+
+    @Test
+    fun `z sets the anchor and Z jumps to it`() {
+        assertEquals(listOf(Effect.Ide(IdeOp.SET_ANCHOR)), run("|a", "z").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.JUMP_TO_ANCHOR)), run("|a", "Z").ide)
+    }
+
+    @Test
     fun `star is case-sensitive and steps with equals`() {
         assertEquals("foo Foo |foo", run("|foo Foo foo", "*").text)
         run("|foo Foo foo", "*")
@@ -863,7 +877,7 @@ class EngineTest {
         assertEquals(listOf(Effect.Ide(IdeOp.MOVE_LINE_UP, 1)), run("|a", "K").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.INDENT, 3)), run("|a", "3L").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.OUTDENT, 1)), run("|a", "H").ide)
-        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "z").ide)
+        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "|").ide)
         run("|a", "L")
         assertEquals(Action.INDENT, engine.state.lastCommand?.action)
     }

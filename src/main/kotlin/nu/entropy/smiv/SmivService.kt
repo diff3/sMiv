@@ -117,12 +117,12 @@ class SmivService : Disposable {
         return AnchorPoint(file, editor.document.createRangeMarker(offset, offset))
     }
 
-    /** Alt+Z */
+    /** `z` / Alt+Z */
     fun setAnchor(editor: Editor) {
         anchors.set(anchorPoint(editor) ?: return)
     }
 
-    /** Alt+X: to the anchor, or from the anchor back to where we jumped from (also across files). */
+    /** `Z` / Alt+X: to the anchor, or from the anchor back to where we jumped from (also across files). */
     fun jumpToAnchor(editor: Editor) {
         val project = editor.project ?: return
         val target = anchors.jump(anchorPoint(editor)) ?: return

@@ -64,6 +64,15 @@ object SmivEffects {
                 messages += revertToSaved(editor)
                 continue
             }
+            if (effect is Effect.Ide && effect.op == IdeOp.SET_ANCHOR) {
+                SmivService.get().setAnchor(editor)
+                messages += "anchor set"
+                continue
+            }
+            if (effect is Effect.Ide && effect.op == IdeOp.JUMP_TO_ANCHOR) {
+                SmivService.get().jumpToAnchor(editor)
+                continue
+            }
             when (effect) {
                 is Effect.Replace -> replace(editor, effect)
                 is Effect.MoveCaret -> moveCaret(editor, effect.offset)
@@ -166,11 +175,14 @@ object SmivEffects {
     }
 
     /**
-     * `z`: put the caret line in the middle of the view. Scrolls directly (no animation,
-     * which a later scroll request could cancel). Near the top of a file the view cannot
-     * scroll far enough to centre.
+     * `|`: put the caret line in the middle of the view with PhpStorm's own Scroll to
+     * Center. Near the top of a file the view cannot scroll far enough to centre.
      */
-    private fun centerCaretLine(editor: Editor) {
+    private fun centerCaretLine(editor: Editor, dataContext: DataContext) {
+        EditorActionManager.getInstance().getActionHandler("EditorScrollToCenter")?.let {
+            it.execute(editor, editor.caretModel.primaryCaret, dataContext)
+            return
+        }
         val scrolling = editor.scrollingModel
         val caretY = editor.visualPositionToXY(editor.caretModel.visualPosition).y
         val target = caretY - (scrolling.visibleArea.height - editor.lineHeight) / 2
@@ -195,7 +207,7 @@ object SmivEffects {
 
     private fun runIdeOp(editor: Editor, dataContext: DataContext, effect: Effect.Ide) {
         if (effect.op == IdeOp.CENTER_LINE) {
-            centerCaretLine(editor)
+            centerCaretLine(editor, dataContext)
             return
         }
         if (effect.op == IdeOp.UNDO) {

@@ -170,7 +170,9 @@ class ParserTest {
         assertEquals(Action.MOVE_LINE_UP, complete("K").action)
         assertEquals(Action.INDENT, complete("L").action)
         assertEquals(Action.OUTDENT, complete("H").action)
-        assertEquals(Action.CENTER_LINE, complete("z").action)
+        assertEquals(Action.CENTER_LINE, complete("|").action)
+        assertEquals(Action.SET_ANCHOR, complete("z").action)
+        assertEquals(Action.JUMP_TO_ANCHOR, complete("Z").action)
         assertEquals(Command(Action.TEXT_OBJECT_DELETE_AROUND, sequence = "\"X", char = '"'), complete("\"X"))
         assertEquals(Command(Action.TEXT_OBJECT_YANK_AROUND, sequence = "( 3Y", register = 3, char = '('), complete("( 3Y"))
     }

@@ -14,7 +14,7 @@ data class TextView(
 enum class IdeOp {
     LEFT, RIGHT, UP, DOWN, PAGE_UP, PAGE_DOWN, LINE_START, LINE_END,
     NEW_LINE_BELOW, NEW_LINE_ABOVE, JOIN_LINES, UNDO, REVERT_TO_SAVED,
-    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, CENTER_LINE,
+    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, CENTER_LINE, SET_ANCHOR, JUMP_TO_ANCHOR,
 }
 
 /** What a command asks the IDE to do, in order. Offsets refer to the text at that point. */
@@ -288,6 +288,8 @@ class Engine(val state: SmivState = SmivState()) {
             Action.INDENT -> ide(IdeOp.INDENT, count)
             Action.OUTDENT -> ide(IdeOp.OUTDENT, count)
             Action.CENTER_LINE -> ide(IdeOp.CENTER_LINE)
+            Action.SET_ANCHOR -> ide(IdeOp.SET_ANCHOR)
+            Action.JUMP_TO_ANCHOR -> ide(IdeOp.JUMP_TO_ANCHOR)
 
             Action.UNDO -> ide(IdeOp.UNDO)
             Action.REVERT_TO_SAVED -> ide(IdeOp.REVERT_TO_SAVED)
