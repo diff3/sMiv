@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>nu.entropy.smiv</id>
+    <name>sMiv</name>
+    <vendor email="magnus@entropy.nu">diff3</vendor>
+    <description><![CDATA[
+    Lightweight modal editing (NAV/INSERT) for PhpStorm, ported from the MIV VS Code extension.
+    <ul>
+      <li><b>ESC</b> NAV mode, <b>i</b> / <b>Space</b> INSERT mode</li>
+      <li><b>w a s d</b>, <b>W A S D</b>, <b>q e Q E</b> movement, with counts (<code>10s</code>)</li>
+      <li><b>x b y p P u o O</b> editing</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <rawEditorTypedHandler implementationClass="nu.entropy.smiv.SmivTypedHandler"/>
+        <editorActionHandler action="EditorEscape" implementationClass="nu.entropy.smiv.SmivEscapeHandler"/>
+        <editorActionHandler action="EditorEnter" implementationClass="nu.entropy.smiv.SmivEnterHandler"/>
+        <editorFactoryListener implementation="nu.entropy.smiv.SmivEditorFactoryListener"/>
+        <statusBarWidgetFactory id="nu.entropy.smiv.status"
+                                implementation="nu.entropy.smiv.SmivStatusBarWidgetFactory"
+                                order="first"/>
+        <postStartupActivity implementation="nu.entropy.smiv.SmivStartupActivity"/>
+        <notificationGroup id="sMiv" displayType="BALLOON"/>
+    </extensions>
+</idea-plugin>
