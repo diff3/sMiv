@@ -14,7 +14,7 @@ data class TextView(
 enum class IdeOp {
     LEFT, RIGHT, UP, DOWN, PAGE_UP, PAGE_DOWN, LINE_START, LINE_END,
     NEW_LINE_BELOW, NEW_LINE_ABOVE, JOIN_LINES, UNDO, REVERT_TO_SAVED,
-    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, CENTER_LINE, SET_ANCHOR, JUMP_TO_ANCHOR,
+    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, SET_ANCHOR, JUMP_TO_ANCHOR,
 }
 
 /** What a command asks the IDE to do, in order. Offsets refer to the text at that point. */
@@ -287,7 +287,7 @@ class Engine(val state: SmivState = SmivState()) {
             Action.MOVE_LINE_UP -> ide(IdeOp.MOVE_LINE_UP, count)
             Action.INDENT -> ide(IdeOp.INDENT, count)
             Action.OUTDENT -> ide(IdeOp.OUTDENT, count)
-            Action.CENTER_LINE -> ide(IdeOp.CENTER_LINE)
+            Action.LINE_PERCENT -> listOf(Effect.MoveCaret(TextOps.linePercentTarget(text, caret, count)))
             Action.SET_ANCHOR -> ide(IdeOp.SET_ANCHOR)
             Action.JUMP_TO_ANCHOR -> ide(IdeOp.JUMP_TO_ANCHOR)
 

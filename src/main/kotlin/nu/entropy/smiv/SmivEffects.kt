@@ -174,20 +174,6 @@ object SmivEffects {
         })
     }
 
-    /**
-     * `<`: put the caret line in the middle of the view. ScrollType.CENTER (and Scroll to
-     * Center) do nothing while the line is already visible, so scroll explicitly, without
-     * animation. Near the top of a file the view cannot scroll far enough to centre.
-     */
-    private fun centerCaretLine(editor: Editor) {
-        val scrolling = editor.scrollingModel
-        val caretY = editor.visualPositionToXY(editor.caretModel.visualPosition).y
-        val target = caretY - (scrolling.visibleArea.height - editor.lineHeight) / 2
-        scrolling.disableAnimation()
-        scrolling.scrollVertically(maxOf(0, target))
-        scrolling.enableAnimation()
-    }
-
     /** Selection mode: select from [anchor] to the caret after a motion. */
     fun selectFrom(editor: Editor, anchor: Int) {
         val caret = editor.caretModel.primaryCaret
@@ -203,10 +189,6 @@ object SmivEffects {
     }
 
     private fun runIdeOp(editor: Editor, dataContext: DataContext, effect: Effect.Ide) {
-        if (effect.op == IdeOp.CENTER_LINE) {
-            centerCaretLine(editor)
-            return
-        }
         if (effect.op == IdeOp.UNDO) {
             // Typing may run inside the editor's own command, and undo is not allowed there.
             ApplicationManager.getApplication().invokeLater({

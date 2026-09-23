@@ -24,7 +24,8 @@ selecting text, ...) work as usual.
   from the top / bottom (`1`–`9` for 10–90 %; two digits such as `15-` give that percentage).
 - `f<char>` / `F<char>` next / previous `<char>` on the line (`3f,` the third one), `;` repeats. `n` / `N` go to the
   next / previous one until the next search.
-- `<` centres the line in the view (the key left of Z on a Swedish keyboard).
+- `<` goes to the middle of the text on the line (indentation and trailing spaces not counted); `3<` 30 %, `25<` 25 %.
+  `>` is the middle of the document, the same as `m` (`3>` 30 %, `25>` 25 %).
 - `g` line 1, `[n]g` line n, `m` 50 %, `1m`..`9m` 10–90 %, `15m` 15 %, `G` document end, `[n]G` n lines from the bottom.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.

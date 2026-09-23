@@ -126,6 +126,17 @@ object TextOps {
         return start until end
     }
 
+    /**
+     * `<`: [percent] of the way along the text on the line, ignoring the indentation and
+     * trailing whitespace (so `<` is the middle of the code on the line).
+     */
+    fun linePercentTarget(text: CharSequence, offset: Int, percent: Int): Int {
+        val start = firstNonBlank(text, offset)
+        var end = lineEnd(text, offset)
+        while (end > start && text[end - 1].isWhitespace()) end--
+        return minOf(end, start + Math.round((end - start) * percent / 100.0).toInt())
+    }
+
     /** `f` / `F`: the [count]th [char] after (or before) [offset] on the same line. */
     fun findCharOnLine(text: CharSequence, offset: Int, char: Char, forward: Boolean, count: Int): Int? {
         val range = if (forward) (offset + 1) until lineEnd(text, offset) else (offset - 1) downTo lineStart(text, offset)

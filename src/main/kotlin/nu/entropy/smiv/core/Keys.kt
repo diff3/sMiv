@@ -21,7 +21,7 @@ enum class Action(val countable: Boolean = false) {
     REPEAT, SEARCH_NEXT, SEARCH_PREVIOUS,
     TOGGLE_SELECT, FIND_CHAR(true), FIND_CHAR_BACKWARD(true), REPEAT_FIND(true),
     SEARCH_WORD_FORWARD, SEARCH_WORD_BACKWARD,
-    MOVE_LINE_DOWN(true), MOVE_LINE_UP(true), INDENT(true), OUTDENT(true), CENTER_LINE,
+    MOVE_LINE_DOWN(true), MOVE_LINE_UP(true), INDENT(true), OUTDENT(true), LINE_PERCENT,
     SET_ANCHOR, JUMP_TO_ANCHOR,
     // Built by the engine from the command line (`/foo`, `=bar`), not by the parser.
     SEARCH_FORWARD, SEARCH_BACKWARD, SEARCH_REGEX, APPLY_REPLACE_RULE,
@@ -43,6 +43,8 @@ object Keys {
     const val YANK_LINE = 'y'
     const val FIND_CHAR = 'f'
     const val FIND_CHAR_BACKWARD = 'F'
+    const val LINE_MIDDLE = '<'
+    const val DOC_MIDDLE_ALIAS = '>'
     const val BLOCK_FIRST_LINE = '-'
     const val BLOCK_LAST_LINE = '_'
 
@@ -61,7 +63,7 @@ object Keys {
         Action.JUMP_BRACKET_MATCH, Action.GOTO_LINE, Action.GOTO_PERCENT, Action.DOC_END,
         Action.GOTO_LINE_FROM_BOTTOM, Action.SEARCH_NEXT, Action.SEARCH_PREVIOUS, Action.SEARCH_FORWARD,
         Action.SEARCH_BACKWARD, Action.SEARCH_REGEX, Action.SEARCH_WORD_FORWARD, Action.SEARCH_WORD_BACKWARD,
-        Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD, Action.REPEAT_FIND, Action.CENTER_LINE,
+        Action.FIND_CHAR, Action.FIND_CHAR_BACKWARD, Action.REPEAT_FIND, Action.LINE_PERCENT,
     )
 
     /** Keys that open the command line when no command is pending. */
@@ -138,7 +140,6 @@ object Keys {
         'K' to Action.MOVE_LINE_UP,
         'L' to Action.INDENT,
         'H' to Action.OUTDENT,
-        '<' to Action.CENTER_LINE,
         'Z' to Action.SET_ANCHOR,
         'z' to Action.JUMP_TO_ANCHOR,
         'i' to Action.INSERT,
@@ -220,7 +221,8 @@ class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
             KeyBinding("MOVE_LINE_UP", 'K', "Move line up"),
             KeyBinding("INDENT_LINES", 'L', "Indent"),
             KeyBinding("OUTDENT_LINES", 'H', "Outdent"),
-            KeyBinding("CENTER_LINE", '<', "Center line in view"),
+            KeyBinding("LINE_MIDDLE", '<', "Go to line percent (middle)"),
+            KeyBinding("DOC_MIDDLE_ALIAS", '>', "Go to document percent (middle)"),
             KeyBinding("SET_ANCHOR", 'Z', "Set anchor"),
             KeyBinding("JUMP_TO_ANCHOR", 'z', "Jump to anchor and back"),
             KeyBinding("SEARCH_FORWARD", '/', "Search forward"),

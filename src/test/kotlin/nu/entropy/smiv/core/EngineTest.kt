@@ -849,6 +849,18 @@ class EngineTest {
     }
 
     @Test
+    fun `less-than goes to the middle of the line, greater-than to the middle of the document`() {
+        assertEquals("    abc|def", run("|    abcdef", "<").text)
+        assertEquals("abc|def\nx", run("abcde|f\nx", "<").text)
+        assertEquals("  ab|cd   ", run("|  abcd   ", "<").text)
+        assertEquals("a|bcdefghij", run("|abcdefghij", "1<").text)
+        assertEquals("abcdefgh|ij", run("|abcdefghij", "75<").text)
+        assertEquals("|", run("|", "<").text)
+        assertEquals("l0\nl1\n|l2\nl3\nl4", run("l|0\nl1\nl2\nl3\nl4", ">").text)
+        assertEquals("l0\nl1\nl2\n|l3\nl4", run("|l0\nl1\nl2\nl3\nl4", "7>").text)
+    }
+
+    @Test
     fun `n and N follow star and hash`() {
         run("|foo x foo y foo", "*")
         assertEquals("foo x foo y |foo", run("foo x |foo y foo", "n").text)
@@ -877,7 +889,6 @@ class EngineTest {
         assertEquals(listOf(Effect.Ide(IdeOp.MOVE_LINE_UP, 1)), run("|a", "K").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.INDENT, 3)), run("|a", "3L").ide)
         assertEquals(listOf(Effect.Ide(IdeOp.OUTDENT, 1)), run("|a", "H").ide)
-        assertEquals(listOf(Effect.Ide(IdeOp.CENTER_LINE, 1)), run("|a", "<").ide)
         run("|a", "L")
         assertEquals(Action.INDENT, engine.state.lastCommand?.action)
     }

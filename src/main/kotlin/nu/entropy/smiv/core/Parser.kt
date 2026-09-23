@@ -31,7 +31,8 @@ sealed interface ParseResult {
  * - `-` / `_`, `[1-9]-` / `[1-9]_` (10–90 %) and `[10-99]-` / `[10-99]_` (that %) into the block
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
  * - `[register]p`, `[register]P`, `v`, `register v`
- * - `g`, `[line]g`, `m`, `[1-9]m` (10–90 %), `[10-99]m` (that %), `G`, `[n]G`
+ * - `g`, `[line]g`, `m` / `>`, `[1-9]m` (10–90 %), `[10-99]m` (that %), `G`, `[n]G`
+ * - `<` middle of the line, `[1-9]<` / `[10-99]<` that far along it
  * - text objects: `!y`, `"x`, `(p`, `"Y`, `(X` or with a register `" 3y`
  */
 object Parser {
@@ -82,10 +83,13 @@ object Parser {
                 complete(Command(Action.STORE_REGISTER, sequence = buffer, register = register))
             }
             Keys.GOTO_LINE -> complete(Command(Action.GOTO_LINE, number ?: 1, number != null, buffer))
-            Keys.DOC_MIDDLE -> when {
-                number == null -> complete(Command(Action.GOTO_PERCENT, 50, sequence = buffer))
-                percent != null -> complete(Command(Action.GOTO_PERCENT, percent, true, buffer))
-                else -> ParseResult.Invalid
+            Keys.DOC_MIDDLE, Keys.DOC_MIDDLE_ALIAS, Keys.LINE_MIDDLE -> {
+                val action = if (key == Keys.LINE_MIDDLE) Action.LINE_PERCENT else Action.GOTO_PERCENT
+                when {
+                    number == null -> complete(Command(action, 50, sequence = buffer))
+                    percent != null -> complete(Command(action, percent, true, buffer))
+                    else -> ParseResult.Invalid
+                }
             }
             Keys.BLOCK_FIRST_LINE, Keys.BLOCK_LAST_LINE -> {
                 val action = if (key == Keys.BLOCK_FIRST_LINE) Action.BLOCK_FIRST_LINE else Action.BLOCK_LAST_LINE
