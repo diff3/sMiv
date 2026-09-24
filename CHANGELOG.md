@@ -6,7 +6,6 @@
 - In selection mode `(`, `[`, `{`, `"`, `'`, `` ` `` and `´` wrap the selection.
 - `=new` / `==new` with a selection only replace inside it.
 - Numbered anchors: `3Z` sets anchor `3`, `3z` jumps to it.
-- `f` / `F` / `*` / `#` only highlight the matches, the caret stays; step with `n` / `N`.
 - `n` / `N` take a count: `3n` goes three matches on.
 - The register viewer stays open until you pick a register or press `Esc`.
 

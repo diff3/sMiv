@@ -809,21 +809,20 @@ class EngineTest {
     // ---- search character under caret ----
 
     @Test
-    fun `f and F highlight the character under the caret without moving and n N step`() {
+    fun `f and F search the character under the caret and n N step`() {
         val result = run("|a,b,a,c", "f")
-        assertEquals("|a,b,a,c", result.text)
-        assertEquals(Effect.Highlight(listOf(Match(0, 1), Match(4, 5)), 0), result.highlight)
-        assertEquals(listOf("2 matches"), result.messages)
-        assertEquals("a,b,|a,c", run("|a,b,a,c", "n").text)
+        assertEquals("a,b,|a,c", result.text)
+        assertEquals(Effect.Highlight(listOf(Match(0, 1), Match(4, 5)), 1), result.highlight)
+        assertEquals("|a,b,a,c", run("a,b,|a,c", "n").text)
         assertEquals(listOf("search wrapped"), run("a,b,|a,c", "n").messages)
         assertEquals("a,b,|a,c", run("|a,b,a,c", "N").text)
-        assertEquals("a,b|,a,c", run("a,b|,a,c", "F").text)
-        assertEquals("a|,b,a,c", run("a,b|,a,c", "N").text)
+        assertEquals("a|,b,a,c", run("a,b|,a,c", "F").text)
+        assertEquals("a\n|a", run("|a\na", "f").text)
     }
 
     @Test
     fun `f is case-sensitive and needs a character`() {
-        assertEquals(listOf(Match(0, 1), Match(2, 3)), run("|aAa", "f").highlight?.matches)
+        assertEquals("aA|a", run("|aAa", "f").text)
         assertEquals(listOf("no character under caret"), run("ab|\nc", "f").messages)
         assertEquals(listOf("no character under caret"), run("ab|", "f").messages)
     }
@@ -831,11 +830,9 @@ class EngineTest {
     // ---- search word under caret ----
 
     @Test
-    fun `star and hash highlight the whole word under the caret without moving`() {
-        val star = run("fo|o x foox foo", "*")
-        assertEquals("fo|o x foox foo", star.text)
-        assertEquals(Effect.Highlight(listOf(Match(0, 3), Match(11, 14)), 0), star.highlight)
-        assertEquals("foo x foox |foo", run("foo x foox |foo", "#").text)
+    fun `star searches the whole word under the caret`() {
+        assertEquals("foo x foox |foo", run("fo|o x foox foo", "*").text)
+        assertEquals("|foo x foox foo", run("foo x foox |foo", "#").text)
         assertEquals(listOf("no word under caret"), run("a | b", "*").messages)
     }
 
@@ -854,7 +851,7 @@ class EngineTest {
     @Test
     fun `n and N follow star and hash`() {
         run("|foo x foo y foo", "*")
-        assertEquals("foo x |foo y foo", run("|foo x foo y foo", "n").text)
+        assertEquals("foo x foo y |foo", run("foo x |foo y foo", "n").text)
         run("foo x foo y |foo", "#")
         assertEquals("|foo x foo y foo", run("foo x |foo y foo", "N").text)
     }
@@ -880,8 +877,9 @@ class EngineTest {
 
     @Test
     fun `star is case-sensitive and steps with equals`() {
-        assertEquals(listOf(Match(0, 3), Match(8, 11)), run("|foo Foo foo", "*").highlight?.matches)
-        assertEquals("bar Foo |foo", run("|foo Foo foo", "=bar\n\n").text)
+        assertEquals("foo Foo |foo", run("|foo Foo foo", "*").text)
+        run("|foo Foo foo", "*")
+        assertEquals("foo Foo |bar", run("foo Foo |foo", "=bar\n\n").text)
     }
 
     // ---- lines, indent, centre ----
