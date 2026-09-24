@@ -39,7 +39,8 @@ Install: Settings → Plugins → ⚙ → Install Plugin from Disk… → pick t
 - `SmivService` – app-wide state, cursor shape, status updates.
 - `SmivInput` – raw typed handler, Escape/Enter handlers and the Alt shortcut actions.
 - `SmivEffects` – applies engine effects via Document/CaretModel/WriteCommandAction.
-- `SmivStatusBar` – status bar widget and IdeaVim warning.
+- `SmivStatusBar` – status bar widget factory, startup and IdeaVim warning. The widget itself is
+  `src/main/java/.../SmivStatusBarWidget.java` (Java, so it does not inherit a deprecated API method).
 - `SmivPopups` – register viewer, sMiv menu, stats and KEYMAP views.
 - `SmivSettings` – custom NAV keys (Settings → Tools → sMiv).
 
