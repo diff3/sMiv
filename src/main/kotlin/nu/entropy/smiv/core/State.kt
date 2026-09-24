@@ -25,6 +25,9 @@ class SmivState {
 
     val stats = CommandStats()
 
+    /** `=` typed with a selection: replacing stays within [start, end). */
+    var replaceScope: Pair<Int, Int>? = null
+
     /** Selection mode (`v`): the selection runs from here to the caret. */
     var selectAnchor: Int? = null
 

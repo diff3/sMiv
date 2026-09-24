@@ -30,10 +30,10 @@ sealed interface ParseResult {
  * - `[count]key`, `r<char>`, `[count]f<char>`, `[count]F<char>`
  * - `-` / `_`, `[1-9]-` / `[1-9]_` (10–90 %) and `[10-99]-` / `[10-99]_` (that %) into the block
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
- * - `[register]p`, `[register]P`, `V`, `register V`
+ * - `[register]p`, `[register]P`, `V`, `register V`, `[anchor]Z`, `[anchor]z`
  * - `g`, `[line]g`, `m` / `>`, `[1-9]m` (10–90 %), `[10-99]m` (that %), `G`, `[n]G`
  * - `<` middle of the line, `[1-9]<` / `[10-99]<` that far along it
- * - text objects: `!y`, `"x`, `(p`, `"Y`, `(X` or with a register `" 3y`
+ * - text objects: `!y`, `"x`, `(p`, `{c`, `"Y`, `(X` or with a register `" 3y`
  */
 object Parser {
     fun parse(buffer: String): ParseResult {
@@ -75,6 +75,12 @@ object Parser {
             Keys.PASTE_BEFORE, Keys.PASTE_AFTER -> {
                 if (digits.length > 1) return ParseResult.Invalid
                 val action = if (key == Keys.PASTE_BEFORE) Action.PASTE_BEFORE else Action.PASTE_AFTER
+                complete(Command(action, sequence = buffer, register = register))
+            }
+            Keys.SET_ANCHOR, Keys.JUMP_TO_ANCHOR -> {
+                // `3Z` / `3z`: numbered anchors, like registers.
+                if (digits.length > 1) return ParseResult.Invalid
+                val action = if (key == Keys.SET_ANCHOR) Action.SET_ANCHOR else Action.JUMP_TO_ANCHOR
                 complete(Command(action, sequence = buffer, register = register))
             }
             Keys.STORE_REGISTER -> {

@@ -26,7 +26,7 @@ enum class Action(val countable: Boolean = false) {
     // Built by the engine from the command line (`/foo`, `=bar`), not by the parser.
     SEARCH_FORWARD, SEARCH_BACKWARD, SEARCH_REGEX, APPLY_REPLACE_RULE,
     TEXT_OBJECT_YANK, TEXT_OBJECT_DELETE, TEXT_OBJECT_PASTE,
-    TEXT_OBJECT_YANK_AROUND, TEXT_OBJECT_DELETE_AROUND,
+    TEXT_OBJECT_YANK_AROUND, TEXT_OBJECT_DELETE_AROUND, TEXT_OBJECT_CHANGE,
 }
 
 object Keys {
@@ -41,6 +41,14 @@ object Keys {
     const val DOC_BOTTOM = 'G'
     const val DELETE_CHAR = 'x'
     const val YANK_LINE = 'y'
+    const val SET_ANCHOR = 'Z'
+    const val JUMP_TO_ANCHOR = 'z'
+
+    /** In selection mode these keys surround the selection with the pair. */
+    val SURROUND_PAIRS: Map<Char, Char> = mapOf(
+        '(' to ')', '[' to ']', '{' to '}', '"' to '"', '\'' to '\'', '`' to '`', '´' to '´',
+    )
+
     const val LINE_MIDDLE = '<'
     const val DOC_MIDDLE_ALIAS = '>'
     const val BLOCK_FIRST_LINE = '-'
@@ -74,11 +82,12 @@ object Keys {
     const val TEXT_OBJECT_AUTO = '!'
     const val TEXT_OBJECT_KEYS = "!\"'`´([{"
 
-    /** `"y` / `"x` / `"p` act inside the delimiters; `"Y` / `"X` include them. */
+    /** `"y` / `"x` / `"p` / `"c` act inside the delimiters; `"Y` / `"X` include them. */
     val TEXT_OBJECT_ACTIONS: Map<Char, Action> = mapOf(
         YANK_LINE to Action.TEXT_OBJECT_YANK,
         DELETE_CHAR to Action.TEXT_OBJECT_DELETE,
         PASTE_BEFORE to Action.TEXT_OBJECT_PASTE,
+        'c' to Action.TEXT_OBJECT_CHANGE,
         'Y' to Action.TEXT_OBJECT_YANK_AROUND,
         'X' to Action.TEXT_OBJECT_DELETE_AROUND,
     )
@@ -90,7 +99,7 @@ object Keys {
         Action.TOGGLE_CASE_CHAR, Action.TOGGLE_CASE_WORD, Action.OPEN_LINE_BELOW, Action.OPEN_LINE_ABOVE,
         Action.CHANGE_TO_LINE_END, Action.CHANGE_TO_LINE_START, Action.JOIN_LINES,
         Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
-        Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND,
+        Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND, Action.TEXT_OBJECT_CHANGE,
         Action.MOVE_LINE_DOWN, Action.MOVE_LINE_UP, Action.INDENT, Action.OUTDENT,
         Action.SEARCH_FORWARD, Action.SEARCH_BACKWARD, Action.SEARCH_REGEX, Action.APPLY_REPLACE_RULE,
     )

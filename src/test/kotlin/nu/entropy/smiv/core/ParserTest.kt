@@ -174,6 +174,11 @@ class ParserTest {
         invalid("0<")
         assertEquals(Action.SET_ANCHOR, complete("Z").action)
         assertEquals(Action.JUMP_TO_ANCHOR, complete("z").action)
+        assertEquals(Command(Action.SET_ANCHOR, sequence = "3Z", register = 3), complete("3Z"))
+        assertEquals(Command(Action.JUMP_TO_ANCHOR, sequence = "3z", register = 3), complete("3z"))
+        invalid("12z")
+        assertEquals(Command(Action.TEXT_OBJECT_CHANGE, sequence = "\"c", char = '"'), complete("\"c"))
+        assertEquals(Command(Action.TEXT_OBJECT_CHANGE, sequence = "( 3c", register = 3, char = '('), complete("( 3c"))
         assertEquals(Command(Action.TEXT_OBJECT_DELETE_AROUND, sequence = "\"X", char = '"'), complete("\"X"))
         assertEquals(Command(Action.TEXT_OBJECT_YANK_AROUND, sequence = "( 3Y", register = 3, char = '('), complete("( 3Y"))
     }

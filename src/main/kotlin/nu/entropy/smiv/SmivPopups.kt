@@ -11,13 +11,9 @@ import com.intellij.testFramework.LightVirtualFile
 import nu.entropy.smiv.core.Register
 import nu.entropy.smiv.core.registerPreview
 import java.awt.Component
-import javax.swing.Timer
 
 /** Register viewer, the sMiv menu and the text views it opens (MIV's QuickPicks and output channel). */
 object SmivPopups {
-    /** Like MIV, the register viewer closes by itself after a short while. */
-    private const val REGISTER_VIEWER_TIMEOUT_MS = 2000
-
     /**
      * `V`: list the non-empty registers. Typing a digit or choosing a row pastes that
      * register before the caret.
@@ -34,11 +30,8 @@ object SmivPopups {
             override fun onChosen(selectedValue: Pair<Int, Register>, finalChoice: Boolean): PopupStep<*>? =
                 doFinalStep { SmivService.get().pasteRegister(editor, selectedValue.first) }
         }
-        val popup = JBPopupFactory.getInstance().createListPopup(step)
-        Timer(REGISTER_VIEWER_TIMEOUT_MS) { if (popup.isVisible) popup.cancel() }
-            .apply { isRepeats = false }
-            .start()
-        popup.showInBestPositionFor(editor)
+        // Stays open until a register is chosen or Esc is pressed.
+        JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(editor)
     }
 
     private class MenuItem(val label: String, val run: () -> Unit)

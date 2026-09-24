@@ -45,6 +45,7 @@ class EngineTest {
         var highlight: Effect.Highlight? = null
         var flash: Effect.Flash? = null
         var registersShown: Effect.ShowRegisters? = null
+        val anchors = mutableListOf<Effect.Anchor>()
 
         /** Like the IDE layer, selection mode selects from the anchor to the caret. */
         fun view(): TextView {
@@ -63,6 +64,7 @@ class EngineTest {
                     is Effect.Highlight -> highlight = effect
                     is Effect.Flash -> flash = effect
                     is Effect.ShowRegisters -> registersShown = effect
+                    is Effect.Anchor -> anchors += effect
                 }
             }
         }
@@ -70,7 +72,7 @@ class EngineTest {
         fun result(): Result {
             // Like the IDE, keep the caret inside the text after edits that shorten it.
             val at = caret.coerceIn(0, text.length)
-            return Result(text.substring(0, at) + "|" + text.substring(at), ide, messages, highlight, flash, registersShown)
+            return Result(text.substring(0, at) + "|" + text.substring(at), ide, messages, highlight, flash, registersShown, anchors)
         }
     }
 
@@ -81,6 +83,7 @@ class EngineTest {
         val highlight: Effect.Highlight? = null,
         val flash: Effect.Flash? = null,
         val registersShown: Effect.ShowRegisters? = null,
+        val anchors: List<Effect.Anchor> = emptyList(),
     )
 
     // ---- modes ----
@@ -854,9 +857,11 @@ class EngineTest {
     }
 
     @Test
-    fun `Z sets the anchor and z jumps to it`() {
-        assertEquals(listOf(Effect.Ide(IdeOp.SET_ANCHOR)), run("|a", "Z").ide)
-        assertEquals(listOf(Effect.Ide(IdeOp.JUMP_TO_ANCHOR)), run("|a", "z").ide)
+    fun `Z sets the anchor and z jumps to it, with numbered anchors`() {
+        assertEquals(listOf(Effect.Anchor(set = true, slot = 0)), run("|a", "Z").anchors)
+        assertEquals(listOf(Effect.Anchor(set = false, slot = 0)), run("|a", "z").anchors)
+        assertEquals(listOf(Effect.Anchor(set = true, slot = 3)), run("|a", "3Z").anchors)
+        assertEquals(listOf(Effect.Anchor(set = false, slot = 3)), run("|a", "3z").anchors)
     }
 
     @Test
@@ -904,5 +909,70 @@ class EngineTest {
         assertEquals(at("l5"), run(block.replace("l1", "|l1"), "9-").text)
         assertEquals(at("l2"), run(block.replace("l1", "|l1"), "25-").text)
         assertEquals(at("l4"), run(block.replace("l1", "|l1"), "25_").text)
+    }
+
+    // ---- change inside a text object, surround, replace in a selection ----
+
+    @Test
+    fun `c on a text object empties it and enters INSERT`() {
+        assertEquals("say \"|\" now", run("say \"he|llo\" now", "\"c").text)
+        assertEquals(Mode.INSERT, engine.state.mode)
+        assertEquals(Register("hello"), engine.state.registers[8])
+        engine.escape()
+        assertEquals("f(|)", run("f(a, |b)", "( 3c").text)
+        assertEquals(Register("a, b"), engine.state.registers[3])
+        engine.escape()
+        assertEquals("{|}", run("{|x}", "!c").text)
+    }
+
+    @Test
+    fun `in selection mode brackets and quotes surround the selection`() {
+        assertEquals("|(foo) bar", run("|foo bar", "ve(").text)
+        assertEquals(false, engine.isSelecting)
+        assertEquals("|\"foo\" bar", run("|foo bar", "ve\"").text)
+        assertEquals("|{foo} bar", run("|foo bar", "ve{").text)
+    }
+
+    @Test
+    fun `without selection mode brackets still start text objects`() {
+        assertEquals("f(|)", run("f(a|b)", "(x").text)
+    }
+
+    @Test
+    fun `double equals with a selection replaces only inside it`() {
+        run("|a a b a a", "/a\n")
+        engine.state.selectAnchor = 0
+        val result = run("a a| b a a", "==X\n")
+        assertEquals("X X b a a", result.text.replace("|", ""))
+        assertEquals(listOf("replaced 2 matches"), result.messages)
+        assertEquals(false, engine.isSelecting)
+    }
+
+    @Test
+    fun `equals with a selection steps through the matches inside it`() {
+        run("|a a b a a", "/a\n")
+        engine.state.selectAnchor = 0
+        assertEquals("|a a b a a", run("a a| b a a", "=X\n").text)
+        assertEquals("X |a b a a", run("|a a b a a", "\n").text)
+        val last = run("X |a b a a", "\n")
+        assertEquals("X |X b a a", last.text)
+        // Nothing left inside the selection: Enter works as usual again.
+        assertEquals(false, engine.handlesEnter)
+    }
+
+    @Test
+    fun `two-part rule with a selection only replaces inside it`() {
+        engine.state.selectAnchor = 0
+        assertEquals("y y z x x", run("x x| z x x", "==x y\n").text.replace("|", ""))
+    }
+
+    @Test
+    fun `a new search drops the selection scope`() {
+        engine.state.selectAnchor = 0
+        run("a a| b a a", "=")
+        engine.escape()
+        assertEquals(null, engine.state.replaceScope)
+        run("a a| b a a", "/a\n")
+        assertEquals(null, engine.state.replaceScope)
     }
 }

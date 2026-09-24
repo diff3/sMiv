@@ -64,13 +64,10 @@ object SmivEffects {
                 messages += revertToSaved(editor)
                 continue
             }
-            if (effect is Effect.Ide && effect.op == IdeOp.SET_ANCHOR) {
-                SmivService.get().setAnchor(editor)
-                messages += "anchor set"
-                continue
-            }
-            if (effect is Effect.Ide && effect.op == IdeOp.JUMP_TO_ANCHOR) {
-                SmivService.get().jumpToAnchor(editor)
+            if (effect is Effect.Anchor) {
+                val service = SmivService.get()
+                val message = if (effect.set) service.setAnchor(editor, effect.slot) else service.jumpToAnchor(editor, effect.slot)
+                message?.let(messages::add)
                 continue
             }
             when (effect) {
@@ -81,6 +78,7 @@ object SmivEffects {
                 is Effect.Highlight -> highlight(editor, effect)
                 is Effect.Flash -> flash(editor, effect)
                 is Effect.ShowRegisters -> SmivPopups.showRegisters(editor, effect.registers)
+                is Effect.Anchor -> Unit
                 is Effect.Message -> Unit
             }
         }

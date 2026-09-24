@@ -104,11 +104,14 @@ class SmivService : Disposable {
         refresh()
     }
 
-    /** A place for Alt+Z / Alt+X; the range marker follows edits to the document. */
+    /** A place for an anchor; the range marker follows edits to the document. */
     class AnchorPoint(val file: VirtualFile, val marker: RangeMarker)
 
-    private val anchors = Anchors<AnchorPoint> { a, b ->
-        a.file == b.file && a.marker.isValid && b.marker.isValid && a.marker.startOffset == b.marker.startOffset
+    /** Anchor slots: 0 for `Z` / `z` and Alt+Z / Alt+X, 1–9 for `3Z` / `3z`. */
+    private val anchors = mutableMapOf<Int, Anchors<AnchorPoint>>()
+
+    private fun anchorSlot(slot: Int) = anchors.getOrPut(slot) {
+        Anchors { a, b -> a.file == b.file && a.marker.isValid && b.marker.isValid && a.marker.startOffset == b.marker.startOffset }
     }
 
     private fun anchorPoint(editor: Editor): AnchorPoint? {
@@ -117,18 +120,25 @@ class SmivService : Disposable {
         return AnchorPoint(file, editor.document.createRangeMarker(offset, offset))
     }
 
-    /** `Z` / Alt+Z */
-    fun setAnchor(editor: Editor) {
-        anchors.set(anchorPoint(editor) ?: return)
+    private fun anchorName(slot: Int) = if (slot == 0) "anchor" else "anchor $slot"
+
+    /** `Z` / `3Z` / Alt+Z. Returns the status message. */
+    fun setAnchor(editor: Editor, slot: Int = 0): String {
+        anchorSlot(slot).set(anchorPoint(editor) ?: return "no file")
+        return "${anchorName(slot)} set"
     }
 
-    /** `z` / Alt+X: to the anchor, or from the anchor back to where we jumped from (also across files). */
-    fun jumpToAnchor(editor: Editor) {
-        val project = editor.project ?: return
-        val target = anchors.jump(anchorPoint(editor)) ?: return
-        if (!target.marker.isValid || !target.file.isValid) return
+    /**
+     * `z` / `3z` / Alt+X: to the anchor, or from the anchor back to where we jumped from
+     * (also across files). Returns a status message when there is nothing to jump to.
+     */
+    fun jumpToAnchor(editor: Editor, slot: Int = 0): String? {
+        val project = editor.project ?: return null
+        val target = anchorSlot(slot).jump(anchorPoint(editor)) ?: return "no ${anchorName(slot)}"
+        if (!target.marker.isValid || !target.file.isValid) return "${anchorName(slot)} is gone"
         FileEditorManager.getInstance(project)
             .openTextEditor(OpenFileDescriptor(project, target.file, target.marker.startOffset), true)
+        return null
     }
 
     fun cancelPending() {

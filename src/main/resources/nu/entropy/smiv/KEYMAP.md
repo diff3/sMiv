@@ -28,7 +28,7 @@ selecting text, ...) work as usual.
 - `Alt+Q` / `Alt+E` previous / next paragraph.
 - `Alt+A` / `Alt+D` navigate back / forward.
 - `Z` (or `Alt+Z`) sets an anchor, `z` (or `Alt+X`) jumps to it and then toggles between the anchor and where you
-  jumped from.
+  jumped from. `3Z` / `3z` use anchor `3` (anchors `0`–`9`; plain `Z` / `z` is anchor `0`).
 - `Ctrl+F` opens the find bar.
 - Counts work with motions, for example `10s`.
 
@@ -51,6 +51,8 @@ selecting text, ...) work as usual.
   the selection.
 - `x` deletes, `y` yanks, `c` / `C` change, `§` / `°` toggle case, `p` / `P` replace the selection. This ends selection
   mode, as do `v` and `Esc`. The status bar shows `sMiv SELECT`.
+- `(`, `[`, `{`, `"`, `'`, `` ` `` or `´` wraps the selection, for example `ve(` turns `foo` into `(foo)`.
+- `=new` / `==new` with a selection only replace inside it.
 - The same keys work on a selection made with the mouse or Shift+arrows.
 
 ## Yank, paste and registers
@@ -62,7 +64,7 @@ selecting text, ...) work as usual.
 - `3 x` / `5 3x` delete one / five characters into register `3`.
 - A yank or delete into a named register only writes that register, not the clipboard.
 - `2V` stores the clipboard in register `2`.
-- `V` opens the register viewer. Type a digit or pick a row to paste that register. It closes after two seconds.
+- `V` opens the register viewer. Type a digit or pick a row to paste that register. It stays open until you pick a register or press `Esc`.
 
 ## Search and replace
 
@@ -86,8 +88,9 @@ selecting text, ...) work as usual.
 Inside `!` (automatic), `"`, `'`, `` ` ``, `´`, `(`, `[` or `{`:
 
 - `"y` yanks (register `0` and the clipboard), `"x` deletes (register `8`), `"p` replaces with the clipboard.
+- `"c` empties the object and enters INSERT (the old text goes to register `8`), for example `(c` in `f(a, b)`.
 - `"Y` / `"X` yank / delete including the delimiters, for example `(X` removes `(a, b)`.
-- `" 3y`, `( 3x`, `{ 3p`, `[ 3X` use only register `3`.
+- `" 3y`, `( 3x`, `{ 3p`, `[ 3X`, `( 3c` use only register `3`.
 
 ## sMiv menu
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `"c`, `(c`, `!c` … empty a text object and enter INSERT (`( 3c` stores the old text in register `3`).
+- In selection mode `(`, `[`, `{`, `"`, `'`, `` ` `` and `´` wrap the selection.
+- `=new` / `==new` with a selection only replace inside it.
+- Numbered anchors: `3Z` sets anchor `3`, `3z` jumps to it.
+- The register viewer stays open until you pick a register or press `Esc`.
+
 ## 1.0.0 – 2026-09-24
 
 First Marketplace release. sMiv brings MIV's modal editing to PhpStorm, with the same keys as MIV 2.0.0.

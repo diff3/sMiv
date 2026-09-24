@@ -143,12 +143,16 @@ abstract class SmivDelegateAction(private val actionId: String) : SmivNavAction(
 
 /** Alt+Z: set the anchor. */
 class SmivSetAnchorAction : SmivNavAction() {
-    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().setAnchor(editor)
+    override fun perform(editor: Editor, e: AnActionEvent) {
+        SmivService.get().setAnchor(editor)
+    }
 }
 
 /** Alt+X: jump to the anchor, then toggle between it and where you jumped from. */
 class SmivJumpToAnchorAction : SmivNavAction() {
-    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().jumpToAnchor(editor)
+    override fun perform(editor: Editor, e: AnActionEvent) {
+        SmivService.get().jumpToAnchor(editor)
+    }
 }
 
 /** Alt+A: navigate back. */

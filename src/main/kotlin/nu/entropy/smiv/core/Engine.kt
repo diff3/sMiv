@@ -14,7 +14,7 @@ data class TextView(
 enum class IdeOp {
     LEFT, RIGHT, UP, DOWN, PAGE_UP, PAGE_DOWN, LINE_START, LINE_END,
     NEW_LINE_BELOW, NEW_LINE_ABOVE, JOIN_LINES, UNDO, REVERT_TO_SAVED,
-    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT, SET_ANCHOR, JUMP_TO_ANCHOR,
+    MOVE_LINE_DOWN, MOVE_LINE_UP, INDENT, OUTDENT,
 }
 
 /** What a command asks the IDE to do, in order. Offsets refer to the text at that point. */
@@ -27,6 +27,9 @@ sealed interface Effect {
 
     /** Highlight search [matches]; [current] is the index of the current match or -1. Empty clears. */
     data class Highlight(val matches: List<Match>, val current: Int = -1) : Effect
+
+    /** Set ([set]) or jump to anchor [slot] (`Z` / `z`, `3Z` / `3z`). */
+    data class Anchor(val set: Boolean, val slot: Int) : Effect
 
     /** Briefly highlight text that was just yanked. */
     data class Flash(val start: Int, val end: Int) : Effect
@@ -81,6 +84,11 @@ class Engine(val state: SmivState = SmivState()) {
             return emptyList()
         }
 
+        // Selection mode: `(`, `"` … surround the selection.
+        if (state.selectAnchor != null && state.pending.isEmpty() && view.hasSelection) {
+            Keys.SURROUND_PAIRS[char]?.let { close -> return surround(view, char, close) }
+        }
+
         if (state.pending.isEmpty()) {
             if (char == Keys.INSERT_SPACE) {
                 state.mode = Mode.INSERT
@@ -88,6 +96,10 @@ class Engine(val state: SmivState = SmivState()) {
             }
             Keys.COMMAND_LINE_KEYS[char]?.let {
                 state.commandLine = CommandLine(it)
+                // `=` with a selection replaces only inside it.
+                if (it == CommandLineKind.REPLACE_RULE) {
+                    state.replaceScope = if (view.hasSelection) selectionStart(view) to selectionEnd(view) else null
+                }
                 return emptyList()
             }
         }
@@ -148,6 +160,7 @@ class Engine(val state: SmivState = SmivState()) {
         state.pending.clear()
         state.commandLine = null
         state.selectAnchor = null
+        state.replaceScope = null
         state.mode = Mode.NAV
         if (!state.searchVisible) return emptyList()
         state.searchVisible = false
@@ -270,7 +283,7 @@ class Engine(val state: SmivState = SmivState()) {
             Action.SEARCH_CHAR_BACKWARD -> searchChar(view, forward = false)
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
             Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
-            Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND ->
+            Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND, Action.TEXT_OBJECT_CHANGE ->
                 textObject(command, view, clipboard)
 
             Action.TOGGLE_SELECT -> toggleSelect(view)
@@ -279,8 +292,8 @@ class Engine(val state: SmivState = SmivState()) {
             Action.INDENT -> ide(IdeOp.INDENT, count)
             Action.OUTDENT -> ide(IdeOp.OUTDENT, count)
             Action.LINE_PERCENT -> listOf(Effect.MoveCaret(TextOps.linePercentTarget(text, caret, count)))
-            Action.SET_ANCHOR -> ide(IdeOp.SET_ANCHOR)
-            Action.JUMP_TO_ANCHOR -> ide(IdeOp.JUMP_TO_ANCHOR)
+            Action.SET_ANCHOR -> listOf(Effect.Anchor(set = true, slot = command.register ?: 0))
+            Action.JUMP_TO_ANCHOR -> listOf(Effect.Anchor(set = false, slot = command.register ?: 0))
 
             Action.UNDO -> ide(IdeOp.UNDO)
             Action.REVERT_TO_SAVED -> ide(IdeOp.REVERT_TO_SAVED)
@@ -485,11 +498,26 @@ class Engine(val state: SmivState = SmivState()) {
      * (backward), falling back to the last/first match like MIV, and highlight all.
      */
     /** `/`, `\`, `,`: smart case, so a query without upper-case letters ignores case. */
-    private fun typedSearch(query: String, view: TextView, forward: Boolean, regex: Boolean): List<Effect> =
-        search(SearchQuery(query, regex, Search.smartIgnoreCase(query, regex)), view, forward)
+    private fun typedSearch(query: String, view: TextView, forward: Boolean, regex: Boolean): List<Effect> {
+        state.replaceScope = null
+        return search(SearchQuery(query, regex, Search.smartIgnoreCase(query, regex)), view, forward)
+    }
+
+    /** Matches of a search or rule; with a replace scope only those inside it. */
+    private fun matchesOf(text: CharSequence, pattern: String, regex: Boolean, ignoreCase: Boolean): List<Match>? {
+        val matches = Search.findMatches(text, pattern, regex, ignoreCase) ?: return null
+        val (start, end) = state.replaceScope ?: return matches
+        return matches.filter { it.start >= start && it.end <= end }
+    }
+
+    /** Keep the replace scope's end in step with text replaced inside it. */
+    private fun growScope(delta: Int) {
+        state.replaceScope = state.replaceScope?.let { (start, end) -> start to end + delta }
+    }
 
     /** `*` / `#`: the whole word under the caret, case-sensitive, skipping the word itself. */
     private fun searchWord(view: TextView, forward: Boolean): List<Effect> {
+        state.replaceScope = null
         val word = TextOps.wordAt(view.text, view.caret) ?: return listOf(Effect.Message("no word under caret"))
         val query = SearchQuery(Search.wholeWordPattern(view.text.substring(word.first, word.last + 1)), regex = true)
         // Search from the start of the word so the word itself is skipped both ways.
@@ -502,7 +530,7 @@ class Engine(val state: SmivState = SmivState()) {
      */
     private fun search(query: SearchQuery, view: TextView, forward: Boolean, includeCaret: Boolean = false): List<Effect> {
         if (query.pattern.isEmpty()) return emptyList()
-        val matches = Search.findMatches(view.text, query.pattern, query.regex, query.ignoreCase)
+        val matches = matchesOf(view.text, query.pattern, query.regex, query.ignoreCase)
             ?: return listOf(Effect.Message("invalid regex: ${query.pattern}"))
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
 
@@ -514,7 +542,7 @@ class Engine(val state: SmivState = SmivState()) {
     /** `n` / `N`: next or previous match of the last search, counted from the caret; wraps around. */
     private fun searchAgain(view: TextView, forward: Boolean): List<Effect> {
         val query = state.lastSearch ?: return emptyList()
-        val matches = Search.findMatches(view.text, query.pattern, query.regex, query.ignoreCase) ?: return emptyList()
+        val matches = matchesOf(view.text, query.pattern, query.regex, query.ignoreCase) ?: return emptyList()
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
         return showNearest(matches, view, forward, view.caret + 1)
     }
@@ -558,7 +586,10 @@ class Engine(val state: SmivState = SmivState()) {
 
         state.replaceRule = rule
         state.lastCommand = Command(Action.APPLY_REPLACE_RULE, sequence = "=")
-        return if (replaceEverything) replaceAll(rule, view) else startStepping(rule, view)
+        state.selectAnchor = null
+        // Within a selection, stepping starts at the start of the selection.
+        val from = state.replaceScope?.let { view.copy(caret = it.first) } ?: view
+        return if (replaceEverything) replaceAll(rule, view) else startStepping(rule, from)
     }
 
     /** Jump to the first match of [rule] from the caret and highlight all; Enter then replaces one at a time. */
@@ -572,16 +603,26 @@ class Engine(val state: SmivState = SmivState()) {
 
     private fun replaceAll(rule: ReplaceRule, view: TextView): List<Effect> {
         val text = view.text
-        val count = Search.findMatches(text, rule.search, rule.regex, rule.ignoreCase)?.size
-        val replaced = Search.replaceAll(text, rule)
-        if (count == null || replaced == null) return listOf(Effect.Message("invalid regex: ${rule.search}"))
+        val matches = matchesOf(text, rule.search, rule.regex, rule.ignoreCase)
+            ?: return listOf(Effect.Message("invalid regex: ${rule.search}"))
+        val scope = state.replaceScope
+        val replaced = if (scope == null) {
+            Search.replaceAll(text, rule) ?: return listOf(Effect.Message("invalid regex: ${rule.search}"))
+        } else {
+            // Only inside the selection: replace the matches back to front so offsets stay valid.
+            val builder = StringBuilder(text)
+            matches.asReversed().forEach { builder.replace(it.start, it.end, Search.replacementFor(text, rule, it)) }
+            builder.toString()
+        }
+        growScope(replaced.length - text.length)
 
-        val remaining = Search.findMatches(replaced, rule.search, rule.regex, rule.ignoreCase).orEmpty()
+        val remaining = matchesOf(replaced, rule.search, rule.regex, rule.ignoreCase).orEmpty()
         state.searchVisible = remaining.isNotEmpty()
         return listOfNotNull(
             TextOps.minimalReplacement(text, replaced),
+            scope?.let { Effect.MoveCaret(it.first) },
             Effect.Highlight(remaining),
-            Effect.Message("replaced $count matches"),
+            Effect.Message("replaced ${matches.size} matches"),
         )
     }
 
@@ -592,7 +633,7 @@ class Engine(val state: SmivState = SmivState()) {
     private fun applyReplaceRule(view: TextView): List<Effect> {
         val rule = state.replaceRule ?: return emptyList()
         val text = view.text
-        val matches = Search.findMatches(text, rule.search, rule.regex, rule.ignoreCase)
+        val matches = matchesOf(text, rule.search, rule.regex, rule.ignoreCase)
             ?: return listOf(Effect.Message("invalid regex: ${rule.search}"))
         val current = matches.firstOrNull { view.caret >= it.start && view.caret < it.end }
             ?: matches.firstOrNull { it.start >= view.caret }
@@ -600,7 +641,8 @@ class Engine(val state: SmivState = SmivState()) {
 
         val replacement = Search.replacementFor(text, rule, current)
         val updated = StringBuilder(text).replace(current.start, current.end, replacement)
-        val remaining = Search.findMatches(updated, rule.search, rule.regex, rule.ignoreCase).orEmpty()
+        growScope(replacement.length - (current.end - current.start))
+        val remaining = matchesOf(updated, rule.search, rule.regex, rule.ignoreCase).orEmpty()
         val next = remaining.indexOfFirst { it.start >= current.start + replacement.length }
         state.searchVisible = remaining.isNotEmpty()
         return listOf(
@@ -633,6 +675,12 @@ class Engine(val state: SmivState = SmivState()) {
                     ?: listOf(SmivState.YANK_REGISTER, SmivState.CLIPBOARD_REGISTER)
                 registers.flatMap { store(it, selected, linewise = false) } +
                     Effect.Flash(start, end) + Effect.Message("stored yank in register ${registers.first()}")
+            }
+            Action.TEXT_OBJECT_CHANGE -> {
+                // `"c`: empty the object and type the new contents.
+                state.mode = Mode.INSERT
+                val register = command.register ?: SmivState.DELETE_REGISTER
+                store(register, selected, linewise = false) + listOf(Effect.Replace(start, end, ""), Effect.MoveCaret(start))
             }
             Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_DELETE_AROUND -> {
                 if (selected.isEmpty()) return emptyList()
@@ -687,8 +735,20 @@ class Engine(val state: SmivState = SmivState()) {
 
     /** `f` / `F`: search the character under the caret forward / backward (case-sensitive); `n` / `N` step. */
     private fun searchChar(view: TextView, forward: Boolean): List<Effect> {
+        state.replaceScope = null
         val char = view.text.getOrNull(view.caret)
         if (char == null || char == '\n') return listOf(Effect.Message("no character under caret"))
         return search(SearchQuery(char.toString(), regex = false), view, forward)
+    }
+
+    /** Selection mode: surround the selection with [open] … [close] and leave selection mode. */
+    private fun surround(view: TextView, open: Char, close: Char): List<Effect> {
+        val start = selectionStart(view)
+        val end = selectionEnd(view)
+        state.selectAnchor = null
+        return listOf(
+            Effect.Replace(start, end, "$open${view.text.substring(start, end)}$close"),
+            Effect.MoveCaret(start),
+        )
     }
 }
