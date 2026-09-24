@@ -177,15 +177,27 @@ class SmivService : Disposable {
     /** Status bar colour: plain in NAV, highlighted in INSERT, selection mode and while a command is typed (as in MIV). */
     val statusHighlighted: Boolean get() = mode == Mode.INSERT || engine.isSelecting || engine.commandLine.isNotEmpty()
 
-    /** Re-apply cursor shape to every editor and redraw the status bar widgets. */
+    /** Block cursor as last applied to the open editors; null before the first [refresh]. */
+    private var appliedBlockCursor: Boolean? = null
+
+    private val blockCursor: Boolean get() = enabled && mode == Mode.NAV
+
+    /**
+     * Redraw the status bar widgets. The cursor shape only changes with the mode, so the
+     * open editors are only walked then, not on every key. Editors opened later get it
+     * from [SmivEditorFactoryListener].
+     */
     fun refresh() {
-        EditorFactory.getInstance().allEditors.forEach(::applyCursor)
+        if (blockCursor != appliedBlockCursor) {
+            appliedBlockCursor = blockCursor
+            EditorFactory.getInstance().allEditors.forEach(::applyCursor)
+        }
         widgets.forEach(SmivStatusBarWidget::update)
     }
 
     fun applyCursor(editor: Editor) {
         if (editor.editorKind != EditorKind.MAIN_EDITOR) return
-        editor.settings.isBlockCursor = enabled && mode == Mode.NAV
+        editor.settings.isBlockCursor = blockCursor
     }
 
     override fun dispose() = Unit
