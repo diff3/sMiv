@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <defs>
+    <linearGradient id="face" x1="0" y1="11" x2="0" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c084fc"/>
+      <stop offset="1" stop-color="#7e22ce"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(1.05 1.05)" fill="none" stroke="#2e1065" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 18.5C8.7 17 3.3 16.8 3.3 19.6C3.3 22.3 9.6 21.6 9.6 24.4C9.6 27.3 3.9 27.2 2.8 25.6"/>
+    <path d="M12.6 27V11.8L17.3 20.2L22 11.8V27"/>
+    <path d="M25.6 17.4V27"/>
+    <path d="M29 17.4L32.9 27L36.8 17.4"/>
+    <circle cx="25.6" cy="13.4" r="1.45" fill="#2e1065" stroke="none"/>
+  </g>
+  <g transform="translate(0.7 0.7)" fill="none" stroke="#3b0764" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 18.5C8.7 17 3.3 16.8 3.3 19.6C3.3 22.3 9.6 21.6 9.6 24.4C9.6 27.3 3.9 27.2 2.8 25.6"/>
+    <path d="M12.6 27V11.8L17.3 20.2L22 11.8V27"/>
+    <path d="M25.6 17.4V27"/>
+    <path d="M29 17.4L32.9 27L36.8 17.4"/>
+    <circle cx="25.6" cy="13.4" r="1.45" fill="#3b0764" stroke="none"/>
+  </g>
+  <g transform="translate(0.35 0.35)" fill="none" stroke="#4c1d95" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 18.5C8.7 17 3.3 16.8 3.3 19.6C3.3 22.3 9.6 21.6 9.6 24.4C9.6 27.3 3.9 27.2 2.8 25.6"/>
+    <path d="M12.6 27V11.8L17.3 20.2L22 11.8V27"/>
+    <path d="M25.6 17.4V27"/>
+    <path d="M29 17.4L32.9 27L36.8 17.4"/>
+    <circle cx="25.6" cy="13.4" r="1.45" fill="#4c1d95" stroke="none"/>
+  </g>
+  <g transform="translate(0 0)" fill="none" stroke="#2e1065" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 18.5C8.7 17 3.3 16.8 3.3 19.6C3.3 22.3 9.6 21.6 9.6 24.4C9.6 27.3 3.9 27.2 2.8 25.6"/>
+    <path d="M12.6 27V11.8L17.3 20.2L22 11.8V27"/>
+    <path d="M25.6 17.4V27"/>
+    <path d="M29 17.4L32.9 27L36.8 17.4"/>
+    <circle cx="25.6" cy="13.4" r="1.45" fill="#2e1065" stroke="none"/>
+  </g>
+  <g transform="translate(0 0)" fill="none" stroke="url(#face)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 18.5C8.7 17 3.3 16.8 3.3 19.6C3.3 22.3 9.6 21.6 9.6 24.4C9.6 27.3 3.9 27.2 2.8 25.6"/>
+    <path d="M12.6 27V11.8L17.3 20.2L22 11.8V27"/>
+    <path d="M25.6 17.4V27"/>
+    <path d="M29 17.4L32.9 27L36.8 17.4"/>
+    <circle cx="25.6" cy="13.4" r="1.45" fill="url(#face)" stroke="none"/>
+  </g>
+</svg>
