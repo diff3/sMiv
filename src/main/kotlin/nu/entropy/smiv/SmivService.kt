@@ -51,6 +51,9 @@ class SmivService : Disposable {
 
     val isCommandLineActive: Boolean get() = engine.isCommandLineActive
 
+    /** Selection mode (`v`): where the selection starts, or null when it is off. */
+    val selectAnchor: Int? get() = engine.state.selectAnchor
+
     /** sMiv only drives real code editors, not consoles, commit messages or dialog fields. */
     fun isActiveIn(editor: Editor): Boolean =
         enabled && editor.project != null && editor.editorKind == EditorKind.MAIN_EDITOR
@@ -79,15 +82,18 @@ class SmivService : Disposable {
     private fun run(editor: Editor, dataContext: DataContext, command: (TextView) -> List<Effect>) {
         val caret = editor.caretModel.primaryCaret
         val view = TextView(editor.document.immutableCharSequence, caret.offset, caret.selectionStart, caret.selectionEnd)
-        val effects = command(view)
-        val messages = effects.filterIsInstance<Effect.Message>().map { it.text } +
-            SmivEffects.apply(editor, dataContext, effects.filterNot { it is Effect.Message })
-        engine.state.selectAnchor?.let { SmivEffects.selectFrom(editor, it) }
+        val messages = SmivEffects.apply(editor, dataContext, command(view))
+        selectAnchor?.let { SmivEffects.selectFrom(editor, it) }
         messages.lastOrNull()?.let(::showMessage)
         refresh()
     }
 
     fun toNav(editor: Editor) = run(editor, DataContext.EMPTY_CONTEXT) { engine.escape() }
+
+    /** Alt+Z / Alt+X: the same as `Z` / `z`, including the status message. */
+    fun anchorShortcut(editor: Editor, set: Boolean) = run(editor, DataContext.EMPTY_CONTEXT) {
+        listOf(Effect.Anchor(set, slot = 0))
+    }
 
     /** Register viewer from `V` or the sMiv menu. */
     fun showRegisters(editor: Editor) = run(editor, DataContext.EMPTY_CONTEXT) { view ->
@@ -123,7 +129,7 @@ class SmivService : Disposable {
     private fun anchorName(slot: Int) = if (slot == 0) "anchor" else "anchor $slot"
 
     /** `Z` / `3Z` / Alt+Z. Returns the status message. */
-    fun setAnchor(editor: Editor, slot: Int = 0): String {
+    fun setAnchor(editor: Editor, slot: Int): String {
         anchorSlot(slot).set(anchorPoint(editor) ?: return "no file")
         return "${anchorName(slot)} set"
     }
@@ -132,7 +138,7 @@ class SmivService : Disposable {
      * `z` / `3z` / Alt+X: to the anchor, or from the anchor back to where we jumped from
      * (also across files). Returns a status message when there is nothing to jump to.
      */
-    fun jumpToAnchor(editor: Editor, slot: Int = 0): String? {
+    fun jumpToAnchor(editor: Editor, slot: Int): String? {
         val project = editor.project ?: return null
         val target = anchorSlot(slot).jump(anchorPoint(editor)) ?: return "no ${anchorName(slot)}"
         if (!target.marker.isValid || !target.file.isValid) return "${anchorName(slot)} is gone"

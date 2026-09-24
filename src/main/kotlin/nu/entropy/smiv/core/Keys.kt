@@ -174,6 +174,8 @@ class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
 
     companion object {
         // BINDINGS must be initialised before DEFAULT, which is built from it.
+        // The ids are MIV's token names and are stored in smiv.xml, so they cannot be renamed even where
+        // they read oddly: WORD_END_RIGHT is `E` (Action.WORD_START_RIGHT), PASTE_AFTER is `p` (paste before).
         val BINDINGS: List<KeyBinding> = listOf(
             KeyBinding("LEFT", 'a', "Move left"),
             KeyBinding("RIGHT", 'd', "Move right"),

@@ -2,6 +2,7 @@ package nu.entropy.smiv.core
 
 /** Pure text helpers. Documents use `\n` as the only line separator. */
 object TextOps {
+    // Same characters as Search.WORD_SEPARATORS (which is escaped for a regex); keep the two in step.
     private const val WORD_SEPARATORS = "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?"
 
     // ---- lines ----
@@ -189,27 +190,34 @@ object TextOps {
      * may sit on either bracket. Brackets inside strings or comments are not skipped.
      */
     fun enclosingBlock(text: CharSequence, offset: Int): Pair<Int, Int>? {
-        var open = -1
-        if (offset < text.length && text[offset] in BLOCK_OPENERS) {
-            open = offset
-        } else {
-            var depth = 0
-            for (i in (offset - 1) downTo 0) {
-                val c = text[i]
-                if (c in BLOCK_CLOSERS) depth++
-                if (c in BLOCK_OPENERS && depth-- == 0) {
-                    open = i
-                    break
-                }
-            }
-        }
-        if (open < 0) return null
+        val onOpener = offset < text.length && text[offset] in BLOCK_OPENERS
+        val open = if (onOpener) offset else unmatchedOpenerBefore(text, offset) ?: return null
+        val close = matchingCloser(text, open) ?: return null
+        return open to close
+    }
 
+    /** The nearest block opener before [offset] that is not closed again before [offset]. */
+    private fun unmatchedOpenerBefore(text: CharSequence, offset: Int): Int? {
+        var depth = 0
+        for (i in (offset - 1) downTo 0) {
+            val c = text[i]
+            if (c in BLOCK_CLOSERS) depth++
+            if (c !in BLOCK_OPENERS) continue
+            if (depth == 0) return i
+            depth--
+        }
+        return null
+    }
+
+    /** The block closer that belongs to the opener at [open]. */
+    private fun matchingCloser(text: CharSequence, open: Int): Int? {
         var depth = 0
         for (i in (open + 1) until text.length) {
             val c = text[i]
             if (c in BLOCK_OPENERS) depth++
-            if (c in BLOCK_CLOSERS && depth-- == 0) return open to i
+            if (c !in BLOCK_CLOSERS) continue
+            if (depth == 0) return i
+            depth--
         }
         return null
     }
@@ -238,12 +246,15 @@ object TextOps {
         return firstNonBlank(text, innerLineStarts[index])
     }
 
-    // ---- text objects (port of MIV's editActions.ts, no nesting) ----
+    // ---- delimiter pairs, shared by text objects and `%` ----
 
-    private val TEXT_OBJECT_PAIRS = mapOf(
+    /** Opening → closing delimiter. Quotes close themselves. The order matters for `%` between brackets. */
+    private val OPEN_TO_CLOSE = mapOf(
         '"' to '"', '\'' to '\'', '`' to '`', '´' to '´', '(' to ')', '[' to ']', '{' to '}', '<' to '>',
     )
-    private val TEXT_OBJECT_CLOSERS = mapOf(')' to '(', ']' to '[', '}' to '{', '>' to '<')
+    private val CLOSE_TO_OPEN = OPEN_TO_CLOSE.entries.associate { (open, close) -> close to open }
+
+    // ---- text objects (port of MIV's editActions.ts, no nesting) ----
 
     /**
      * Delimiter offsets (open, close) for text object [objectKey] around [offset]:
@@ -265,8 +276,8 @@ object TextOps {
     private fun autoBoundsAtCaret(text: CharSequence, offset: Int): Pair<Int, Int>? {
         if (offset !in text.indices) return null
         val char = text[offset]
-        val open = if (char in TEXT_OBJECT_PAIRS) char else TEXT_OBJECT_CLOSERS[char] ?: return null
-        val close = TEXT_OBJECT_PAIRS.getValue(open)
+        val open = if (char in OPEN_TO_CLOSE) char else CLOSE_TO_OPEN[char] ?: return null
+        val close = OPEN_TO_CLOSE.getValue(open)
         val symmetric = open == close
 
         if (symmetric) {
@@ -284,7 +295,7 @@ object TextOps {
     private fun textObjectCloseAt(text: CharSequence, offset: Int, objectKey: Char): Char? {
         val open = text[offset]
         if (objectKey != Keys.TEXT_OBJECT_AUTO && open != objectKey) return null
-        val close = TEXT_OBJECT_PAIRS[open] ?: return null
+        val close = OPEN_TO_CLOSE[open] ?: return null
         if (open == close && isEscaped(text, offset)) return null
         return close
     }
@@ -293,11 +304,6 @@ object TextOps {
         indices.firstOrNull { text[it] == char && !(symmetric && isEscaped(text, it)) }
 
     // ---- bracket matching (`%`, port of MIV's motionActions.ts) ----
-
-    private val OPEN_TO_CLOSE = linkedMapOf(
-        '"' to '"', '\'' to '\'', '`' to '`', '´' to '´', '(' to ')', '[' to ']', '{' to '}', '<' to '>',
-    )
-    private val CLOSE_TO_OPEN = OPEN_TO_CLOSE.entries.associate { (open, close) -> close to open }
 
     private fun isEscaped(text: CharSequence, index: Int): Boolean {
         var backslashes = 0
@@ -340,7 +346,10 @@ object TextOps {
         for (i in start until text.length) {
             when (text[i]) {
                 open -> depth++
-                close -> if (--depth == 0) return i
+                close -> {
+                    depth--
+                    if (depth == 0) return i
+                }
             }
         }
         return null
@@ -354,7 +363,10 @@ object TextOps {
         for (i in start downTo 0) {
             when (text[i]) {
                 close -> depth++
-                open -> if (--depth == 0) return i
+                open -> {
+                    depth--
+                    if (depth == 0) return i
+                }
             }
         }
         return null

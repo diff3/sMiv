@@ -27,7 +27,7 @@ sealed interface ParseResult {
  * Parse the buffered NAV key sequence (port of MIV's `parser/index.ts`).
  *
  * Grammar:
- * - `[count]key`, `r<char>`, `[count]f<char>`, `[count]F<char>`
+ * - `[count]key`, `r<char>`
  * - `-` / `_`, `[1-9]-` / `[1-9]_` (10–90 %) and `[10-99]-` / `[10-99]_` (that %) into the block
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
  * - `[register]p`, `[register]P`, `V`, `register V`, `[anchor]Z`, `[anchor]z`

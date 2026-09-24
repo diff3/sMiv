@@ -271,7 +271,11 @@ class Engine(val state: SmivState = SmivState()) {
             }
             Action.DOC_END -> listOf(Effect.MoveCaret(text.length))
 
-            Action.REPEAT -> state.lastCommand?.let { execute(it, view, clipboard) }.orEmpty()
+            // One level only: `.` itself is never stored as the last command (it is not in REPEATABLE).
+            Action.REPEAT -> state.lastCommand?.let {
+                check(it.action != Action.REPEAT) { "`.` must not repeat itself" }
+                execute(it, view, clipboard)
+            }.orEmpty()
             Action.SEARCH_FORWARD -> typedSearch(command.text.orEmpty(), view, forward = true, regex = false)
             Action.SEARCH_BACKWARD -> typedSearch(command.text.orEmpty(), view, forward = false, regex = false)
             Action.SEARCH_REGEX -> typedSearch(command.text.orEmpty(), view, forward = true, regex = true)
@@ -345,11 +349,7 @@ class Engine(val state: SmivState = SmivState()) {
 
     private fun deleteChars(command: Command, view: TextView): List<Effect> {
         val register = command.register ?: SmivState.DELETE_REGISTER
-        if (!command.explicitCount && view.hasSelection) {
-            val start = minOf(view.selectionStart, view.selectionEnd)
-            val end = maxOf(view.selectionStart, view.selectionEnd)
-            return deleteRange(start, end, view.text, register)
-        }
+        if (usesSelection(command, view)) return deleteRange(selectionStart(view), selectionEnd(view), view.text, register)
         return deleteRange(view.caret, minOf(view.text.length, view.caret + command.count), view.text, register)
     }
 
@@ -389,10 +389,8 @@ class Engine(val state: SmivState = SmivState()) {
     private fun yankLines(command: Command, view: TextView): List<Effect> {
         val text = view.text
         val register = command.register
-        if (!command.explicitCount && view.hasSelection) {
-            val start = minOf(view.selectionStart, view.selectionEnd)
-            val end = maxOf(view.selectionStart, view.selectionEnd)
-            return yank(start, end, text, linewise = false, register)
+        if (usesSelection(command, view)) {
+            return yank(selectionStart(view), selectionEnd(view), text, linewise = false, register)
         }
         val start = TextOps.lineStart(text, view.caret)
         val end = TextOps.lineEnd(text, TextOps.lineStartAfter(text, view.caret, command.count - 1))
@@ -493,10 +491,6 @@ class Engine(val state: SmivState = SmivState()) {
 
     // ---- search and replace (port of MIV's search/replace controllers) ----
 
-    /**
-     * `/`, `\`, `,`: jump to the first match after the caret (forward) or before it
-     * (backward), falling back to the last/first match like MIV, and highlight all.
-     */
     /** `/`, `\`, `,`: smart case, so a query without upper-case letters ignores case. */
     private fun typedSearch(query: String, view: TextView, forward: Boolean, regex: Boolean): List<Effect> {
         state.replaceScope = null
@@ -687,16 +681,9 @@ class Engine(val state: SmivState = SmivState()) {
                 val register = command.register ?: SmivState.DELETE_REGISTER
                 store(register, selected, linewise = false) + listOf(Effect.Replace(start, end, ""), Effect.MoveCaret(start))
             }
-            Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_DELETE_AROUND -> {
-                if (selected.isEmpty()) return emptyList()
-                val register = command.register ?: SmivState.DELETE_REGISTER
-                store(register, selected, linewise = false) + listOf(
-                    Effect.Replace(start, end, ""),
-                    Effect.MoveCaret(start),
-                    Effect.Message("stored delete in register $register"),
-                )
-            }
-            else -> {
+            Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_DELETE_AROUND ->
+                deleteRange(start, end, view.text, command.register ?: SmivState.DELETE_REGISTER)
+            Action.TEXT_OBJECT_PASTE -> {
                 val register = command.register ?: SmivState.CLIPBOARD_REGISTER
                 val value = register(register, clipboard)
                 listOf(
@@ -705,6 +692,7 @@ class Engine(val state: SmivState = SmivState()) {
                     Effect.Message("pasted register $register"),
                 )
             }
+            else -> error("${command.action} is not a text object action")
         }
     }
 

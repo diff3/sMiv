@@ -58,7 +58,7 @@ class SmivSettings : PersistentStateComponent<SmivSettings.KeyState> {
 /** Settings → Tools → sMiv: a table of NAV keys (MIV's "Change Keybindings"). */
 class SmivConfigurable : Configurable {
     private val bindings = KeyLayout.BINDINGS
-    private var edited = mutableMapOf<String, Char>()
+    private val edited = mutableMapOf<String, Char>()
 
     private val tableModel = object : AbstractTableModel() {
         override fun getRowCount() = bindings.size
@@ -109,7 +109,8 @@ class SmivConfigurable : Configurable {
     }
 
     override fun reset() {
-        edited = SmivSettings.get().overrides.toMutableMap()
+        edited.clear()
+        edited.putAll(SmivSettings.get().overrides)
         tableModel.fireTableDataChanged()
     }
 }

@@ -33,56 +33,54 @@ import javax.swing.Timer
 object SmivEffects {
     private const val COMMAND_NAME = "sMiv"
 
-    private val ACTION_IDS = mapOf(
-        IdeOp.LEFT to IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT,
-        IdeOp.RIGHT to IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT,
-        IdeOp.UP to IdeActions.ACTION_EDITOR_MOVE_CARET_UP,
-        IdeOp.DOWN to IdeActions.ACTION_EDITOR_MOVE_CARET_DOWN,
-        IdeOp.PAGE_UP to IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_UP,
-        IdeOp.PAGE_DOWN to IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_DOWN,
-        IdeOp.LINE_START to IdeActions.ACTION_EDITOR_MOVE_LINE_START,
-        IdeOp.LINE_END to IdeActions.ACTION_EDITOR_MOVE_LINE_END,
-        IdeOp.NEW_LINE_BELOW to IdeActions.ACTION_EDITOR_START_NEW_LINE,
-        IdeOp.NEW_LINE_ABOVE to "EditorStartNewLineBefore",
-        IdeOp.JOIN_LINES to IdeActions.ACTION_EDITOR_JOIN_LINES,
-        IdeOp.MOVE_LINE_DOWN to IdeActions.ACTION_MOVE_LINE_DOWN_ACTION,
-        IdeOp.MOVE_LINE_UP to IdeActions.ACTION_MOVE_LINE_UP_ACTION,
-        IdeOp.INDENT to "EditorIndentLineOrSelection",
-        IdeOp.OUTDENT to IdeActions.ACTION_EDITOR_UNINDENT_SELECTION,
-    )
+    /** The platform action behind [op]. A `when` so that a new [IdeOp] cannot be forgotten here. */
+    private fun actionId(op: IdeOp): String = when (op) {
+        IdeOp.LEFT -> IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT
+        IdeOp.RIGHT -> IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT
+        IdeOp.UP -> IdeActions.ACTION_EDITOR_MOVE_CARET_UP
+        IdeOp.DOWN -> IdeActions.ACTION_EDITOR_MOVE_CARET_DOWN
+        IdeOp.PAGE_UP -> IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_UP
+        IdeOp.PAGE_DOWN -> IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_DOWN
+        IdeOp.LINE_START -> IdeActions.ACTION_EDITOR_MOVE_LINE_START
+        IdeOp.LINE_END -> IdeActions.ACTION_EDITOR_MOVE_LINE_END
+        IdeOp.NEW_LINE_BELOW -> IdeActions.ACTION_EDITOR_START_NEW_LINE
+        IdeOp.NEW_LINE_ABOVE -> "EditorStartNewLineBefore"
+        IdeOp.JOIN_LINES -> IdeActions.ACTION_EDITOR_JOIN_LINES
+        IdeOp.MOVE_LINE_DOWN -> IdeActions.ACTION_MOVE_LINE_DOWN_ACTION
+        IdeOp.MOVE_LINE_UP -> IdeActions.ACTION_MOVE_LINE_UP_ACTION
+        IdeOp.INDENT -> "EditorIndentLineOrSelection"
+        IdeOp.OUTDENT -> IdeActions.ACTION_EDITOR_UNINDENT_SELECTION
+        IdeOp.UNDO, IdeOp.REVERT_TO_SAVED -> error("$op is sMiv's own code, not a platform action")
+    }
 
     private val WRITE_OPS = setOf(
         IdeOp.NEW_LINE_BELOW, IdeOp.NEW_LINE_ABOVE, IdeOp.JOIN_LINES,
         IdeOp.MOVE_LINE_DOWN, IdeOp.MOVE_LINE_UP, IdeOp.INDENT, IdeOp.OUTDENT,
     )
 
-    /** Runs [effects] in order; returns status messages produced while doing so. */
+    /** Runs [effects] in order; returns the status messages, from the engine and from running the effects. */
     fun apply(editor: Editor, dataContext: DataContext, effects: List<Effect>): List<String> {
         val messages = mutableListOf<String>()
         for (effect in effects) {
-            if (effect is Effect.Ide && effect.op == IdeOp.REVERT_TO_SAVED) {
-                messages += revertToSaved(editor)
-                continue
-            }
-            if (effect is Effect.Anchor) {
-                val service = SmivService.get()
-                val message = if (effect.set) service.setAnchor(editor, effect.slot) else service.jumpToAnchor(editor, effect.slot)
-                message?.let(messages::add)
-                continue
-            }
             when (effect) {
+                is Effect.Message -> messages += effect.text
                 is Effect.Replace -> replace(editor, effect)
                 is Effect.MoveCaret -> moveCaret(editor, effect.offset)
-                is Effect.Ide -> runIdeOp(editor, dataContext, effect)
+                is Effect.Ide -> runIdeOp(editor, dataContext, effect)?.let(messages::add)
+                is Effect.Anchor -> anchor(editor, effect)?.let(messages::add)
                 is Effect.SetClipboard -> CopyPasteManager.getInstance().setContents(StringSelection(effect.text))
                 is Effect.Highlight -> highlight(editor, effect)
                 is Effect.Flash -> flash(editor, effect)
                 is Effect.ShowRegisters -> SmivPopups.showRegisters(editor, effect.registers)
-                is Effect.Anchor -> Unit
-                is Effect.Message -> Unit
             }
         }
         return messages
+    }
+
+    /** `Z` / `z` (and Alt+Z / Alt+X): the anchors live in [SmivService] because they follow files and edits. */
+    private fun anchor(editor: Editor, effect: Effect.Anchor): String? {
+        val service = SmivService.get()
+        return if (effect.set) service.setAnchor(editor, effect.slot) else service.jumpToAnchor(editor, effect.slot)
     }
 
     private const val MAX_HIGHLIGHTS = 10_000
@@ -186,17 +184,28 @@ object SmivEffects {
         editor.scrollingModel.scrollToCaret(ScrollType.MAKE_VISIBLE)
     }
 
-    private fun runIdeOp(editor: Editor, dataContext: DataContext, effect: Effect.Ide) {
-        if (effect.op == IdeOp.UNDO) {
-            // Typing may run inside the editor's own command, and undo is not allowed there.
-            ApplicationManager.getApplication().invokeLater({
-                if (!editor.isDisposed) repeat(effect.times) { undo(editor) }
-            }, ModalityState.stateForComponent(editor.contentComponent))
-            return
+    /** Runs an [IdeOp]; only `U` returns a status message. */
+    private fun runIdeOp(editor: Editor, dataContext: DataContext, effect: Effect.Ide): String? = when (effect.op) {
+        IdeOp.REVERT_TO_SAVED -> revertToSaved(editor)
+        IdeOp.UNDO -> {
+            undoLater(editor, effect.times)
+            null
         }
+        else -> {
+            runEditorAction(editor, dataContext, effect)
+            null
+        }
+    }
 
-        val actionId = ACTION_IDS[effect.op] ?: return
-        val handler = EditorActionManager.getInstance().getActionHandler(actionId) ?: return
+    /** Typing may run inside the editor's own command, and undo is not allowed there. */
+    private fun undoLater(editor: Editor, times: Int) {
+        ApplicationManager.getApplication().invokeLater({
+            if (!editor.isDisposed) repeat(times) { undo(editor) }
+        }, ModalityState.stateForComponent(editor.contentComponent))
+    }
+
+    private fun runEditorAction(editor: Editor, dataContext: DataContext, effect: Effect.Ide) {
+        val handler = EditorActionManager.getInstance().getActionHandler(actionId(effect.op)) ?: return
         val caret = editor.caretModel.primaryCaret
         val writes = effect.op in WRITE_OPS
         repeat(effect.times) {

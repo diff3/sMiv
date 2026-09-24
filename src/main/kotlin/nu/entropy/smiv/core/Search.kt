@@ -123,6 +123,7 @@ object Search {
     fun smartIgnoreCase(query: String, regex: Boolean): Boolean =
         query.indices.none { query[it].isUpperCase() && !(regex && it > 0 && query[it - 1] == '\\') }
 
+    // TextOps.WORD_SEPARATORS escaped for a regex character class; keep the two in step.
     private const val WORD_SEPARATORS = "`~!@#$%^&*()\\-=+\\[{\\]}\\\\|;:'\",.<>/?"
 
     /**

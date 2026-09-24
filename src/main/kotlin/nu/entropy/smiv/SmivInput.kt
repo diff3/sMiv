@@ -79,8 +79,7 @@ class SmivArrowHandler(private val original: EditorActionHandler) : EditorAction
         original.isEnabled(editor, caret, dataContext)
 
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
-        val service = SmivService.get()
-        val anchor = service.engine.state.selectAnchor
+        val anchor = SmivService.get().selectAnchor
         if (anchor == null || !interceptsNav(editor)) {
             original.execute(editor, caret, dataContext)
             return
@@ -143,16 +142,12 @@ abstract class SmivDelegateAction(private val actionId: String) : SmivNavAction(
 
 /** Alt+Z: set the anchor. */
 class SmivSetAnchorAction : SmivNavAction() {
-    override fun perform(editor: Editor, e: AnActionEvent) {
-        SmivService.get().setAnchor(editor)
-    }
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().anchorShortcut(editor, set = true)
 }
 
 /** Alt+X: jump to the anchor, then toggle between it and where you jumped from. */
 class SmivJumpToAnchorAction : SmivNavAction() {
-    override fun perform(editor: Editor, e: AnActionEvent) {
-        SmivService.get().jumpToAnchor(editor)
-    }
+    override fun perform(editor: Editor, e: AnActionEvent) = SmivService.get().anchorShortcut(editor, set = false)
 }
 
 /** Alt+A: navigate back. */
