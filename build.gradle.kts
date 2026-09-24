@@ -36,9 +36,16 @@ intellijPlatform {
     buildSearchableOptions = false
     instrumentCode = false
 
+    // verifyPlugin checks sMiv against the local PhpStorm (no IDE download).
+    pluginVerification {
+        ides {
+            local(file(providers.gradleProperty("platformLocalPath").get()))
+        }
+    }
+
     pluginConfiguration {
         id = "nu.entropy.smiv"
-        name = "sMiv"
+        name = "sMiv - Modal Editing"
         version = providers.gradleProperty("version")
 
         ideaVersion {

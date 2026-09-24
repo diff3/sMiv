@@ -1,10 +1,8 @@
 package nu.entropy.smiv
 
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.wm.CustomStatusBarWidget
@@ -63,11 +61,20 @@ class SmivStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun createWidget(project: Project): StatusBarWidget = SmivStatusBarWidget(project)
 }
 
-/** Warns once per session when IdeaVim is enabled too; both want the same keys. */
+/** Applies the block cursor and status bar once a project is open. */
 class SmivStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         SmivService.get().refresh()
-        if (!isIdeaVimEnabled() || !warned.compareAndSet(false, true)) return
+    }
+}
+
+/**
+ * Warns once per session that IdeaVim is enabled too; both want the same keys.
+ * Only registered when IdeaVim is enabled (optional dependency in plugin.xml).
+ */
+class SmivIdeaVimWarning : ProjectActivity {
+    override suspend fun execute(project: Project) {
+        if (!warned.compareAndSet(false, true)) return
 
         NotificationGroupManager.getInstance().getNotificationGroup("sMiv")
             .createNotification(
@@ -79,11 +86,6 @@ class SmivStartupActivity : ProjectActivity {
                 SmivService.get().enabled = false
             })
             .notify(project)
-    }
-
-    private fun isIdeaVimEnabled(): Boolean {
-        val id = PluginId.getId("IdeaVIM")
-        return PluginManagerCore.getPlugin(id) != null && !PluginManagerCore.isDisabled(id)
     }
 
     companion object {

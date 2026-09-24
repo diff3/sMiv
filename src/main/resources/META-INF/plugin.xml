@@ -1,23 +1,34 @@
 <idea-plugin>
     <id>nu.entropy.smiv</id>
-    <name>sMiv</name>
-    <vendor email="magnus@entropy.nu">diff3</vendor>
+    <name>sMiv - Modal Editing</name>
+    <vendor email="magnus@entropy.nu" url="https://github.com/diff3/sMiv">Magnus Pettersson</vendor>
     <description><![CDATA[
-    Lightweight modal editing (NAV/INSERT) for PhpStorm, ported from the MIV VS Code extension.
+    <p>Lightweight modal editing for PhpStorm, based on
+    <a href="https://github.com/diff3/miv">MIV</a> for VS Code. Inspired by Vim, but not a Vim clone.</p>
+
+    <p><b>Modes.</b> <code>Esc</code> switches to NAV, where typed characters are commands and are never inserted;
+    every other key and shortcut works as usual. <code>i</code> or <code>Space</code> switch to INSERT for normal typing.
+    The status bar shows the mode and what you are typing; click it for the sMiv menu.</p>
+
+    <p><b>Main commands.</b></p>
     <ul>
-      <li><b>ESC</b> NAV mode, <b>i</b> / <b>Space</b> INSERT mode</li>
-      <li><b>w a s d</b>, <b>W A S D</b>, <b>q e Q E</b> movement, with counts (<code>10s</code>)</li>
-      <li><b>x X b B y Y p P u o O I k r R c C &amp; % § °</b> editing, <b>- _</b> first/last line in block</li>
-      <li><b>g m G</b> goto, <b>Alt+Q/E</b> paragraphs, <b>Alt+A/D</b> navigate back/forward</li>
-      <li>Registers 0–9 (9 is the clipboard): <code>2 y</code>, <code>5 3x</code>, <code>2 4y</code>, <code>3p</code>, <code>3P</code>, <code>2V</code></li>
-      <li>Search <code>/ \ ,</code> with <b>n N</b>, replace with <code>=</code>, repeat with <b>.</b>, text objects <code>!y "x (p</code>, <b>U</b> revert to saved</li>
-      <li>Register viewer <b>V</b>, sMiv menu from the status bar</li>
-      <li>Custom NAV keys in Settings → Tools → sMiv</li>
-      <li>Selection mode <b>v</b> (also with the arrow keys), <b>f F</b> / <b>* #</b> search the character / word under the caret, <b>J K H L</b> move / indent lines, <b>&lt; &gt;</b> middle of line / document, <b>Z z</b> set / jump to anchor, <code>"X</code> / <code>(Y</code> including delimiters, <code>5-</code> / <code>5_</code> into a block</li>
+      <li>Move: <code>w a s d</code>, <code>W A S D</code>, words <code>q e Q E</code>, <code>g m G</code>,
+          <code>-</code> / <code>_</code> first / last line in the block, <code>&lt;</code> / <code>&gt;</code> middle of line / document</li>
+      <li>Edit: <code>x</code> <code>b</code> delete, <code>c C</code> change, <code>r R</code> replace, <code>J K</code> move lines,
+          <code>u</code> undo, <code>U</code> revert to saved, <code>.</code> repeat</li>
+      <li>Yank and paste: <code>y p P</code>, registers <code>0</code>–<code>9</code> (<code>9</code> is the clipboard), viewer <code>V</code></li>
+      <li>Select: <code>v</code>, then motions or arrow keys</li>
+      <li>Search: <code>/text</code>, <code>f</code> / <code>*</code> for the character / word under the caret, <code>n N</code>;
+          replace: <code>=new</code> step by step, <code>==new</code> all</li>
+      <li>Text objects: <code>"y</code>, <code>(x</code>, <code>!p</code>; NAV keys can be changed in Settings → Tools → sMiv</li>
     </ul>
+
+    <p>sMiv conflicts with IdeaVim, since both handle typing and Escape; use one of them at a time.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <!-- Loaded only when IdeaVim is enabled: warns that both plugins want the same keys. -->
+    <depends optional="true" config-file="smiv-with-ideavim.xml">IdeaVIM</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <rawEditorTypedHandler implementationClass="nu.entropy.smiv.SmivTypedHandler"/>
@@ -26,7 +37,7 @@
              except for sMiv's command line (search / replace) and half-typed commands. -->
         <editorActionHandler action="EditorEnter" implementationClass="nu.entropy.smiv.SmivEnterHandler"/>
         <editorActionHandler action="EditorBackSpace" implementationClass="nu.entropy.smiv.SmivBackspaceHandler"/>
-        <!-- Arrow keys extend the selection in selection mode (V). -->
+        <!-- Arrow keys extend the selection in selection mode (v). -->
         <editorActionHandler action="EditorLeft" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
         <editorActionHandler action="EditorRight" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
         <editorActionHandler action="EditorUp" implementationClass="nu.entropy.smiv.SmivArrowHandler"/>
