@@ -70,10 +70,11 @@ selecting text, ...) work as usual.
 
 - `/text` forward, `\text` backward, `,pattern` regex (shown as `~`), then `Enter`.
 - Smart case: a search without capitals ignores case (`/foo` finds `Foo`), with capitals it does not.
-- `f` / `F` search the character under the caret forward / backward (case-sensitive).
-- `*` / `#` search the whole word under the caret forward / backward (case-sensitive).
+- `f` / `F` highlight every match of the character under the caret (case-sensitive) without moving; step with `n` / `N`.
+- `*` / `#` do the same for the whole word under the caret.
 - `/` searches for anything you type, even a single character.
-- `n` / `N` next / previous match from the caret; past the end the search wraps around (`search wrapped`).
+- `n` / `N` next / previous match from the caret, `3n` / `3N` three matches on; past the end the search wraps around
+  (`search wrapped`).
   Matches are highlighted until `Esc`.
 - `Backspace` edits the command line, `Esc` cancels it.
 - `=replacement` steps through the matches of the last search (literal or regex): `Enter` or `.` replaces the

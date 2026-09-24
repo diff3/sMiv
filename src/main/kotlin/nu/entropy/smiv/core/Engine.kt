@@ -275,12 +275,10 @@ class Engine(val state: SmivState = SmivState()) {
             Action.SEARCH_FORWARD -> typedSearch(command.text.orEmpty(), view, forward = true, regex = false)
             Action.SEARCH_BACKWARD -> typedSearch(command.text.orEmpty(), view, forward = false, regex = false)
             Action.SEARCH_REGEX -> typedSearch(command.text.orEmpty(), view, forward = true, regex = true)
-            Action.SEARCH_WORD_FORWARD -> searchWord(view, forward = true)
-            Action.SEARCH_WORD_BACKWARD -> searchWord(view, forward = false)
-            Action.SEARCH_NEXT -> searchAgain(view, forward = true)
-            Action.SEARCH_PREVIOUS -> searchAgain(view, forward = false)
-            Action.SEARCH_CHAR_FORWARD -> searchChar(view, forward = true)
-            Action.SEARCH_CHAR_BACKWARD -> searchChar(view, forward = false)
+            Action.SEARCH_WORD_FORWARD, Action.SEARCH_WORD_BACKWARD -> searchWord(view)
+            Action.SEARCH_NEXT -> searchAgain(view, forward = true, command.count)
+            Action.SEARCH_PREVIOUS -> searchAgain(view, forward = false, command.count)
+            Action.SEARCH_CHAR_FORWARD, Action.SEARCH_CHAR_BACKWARD -> searchChar(view)
             Action.APPLY_REPLACE_RULE -> applyReplaceRule(view)
             Action.TEXT_OBJECT_YANK, Action.TEXT_OBJECT_DELETE, Action.TEXT_OBJECT_PASTE,
             Action.TEXT_OBJECT_YANK_AROUND, Action.TEXT_OBJECT_DELETE_AROUND, Action.TEXT_OBJECT_CHANGE ->
@@ -515,13 +513,21 @@ class Engine(val state: SmivState = SmivState()) {
         state.replaceScope = state.replaceScope?.let { (start, end) -> start to end + delta }
     }
 
-    /** `*` / `#`: the whole word under the caret, case-sensitive, skipping the word itself. */
-    private fun searchWord(view: TextView, forward: Boolean): List<Effect> {
+    /** `*` / `#`: highlight the whole word under the caret (case-sensitive) without moving; `n` / `N` step. */
+    private fun searchWord(view: TextView): List<Effect> {
         state.replaceScope = null
         val word = TextOps.wordAt(view.text, view.caret) ?: return listOf(Effect.Message("no word under caret"))
         val query = SearchQuery(Search.wholeWordPattern(view.text.substring(word.first, word.last + 1)), regex = true)
-        // Search from the start of the word so the word itself is skipped both ways.
-        return search(query, view.copy(caret = word.first), forward)
+        return highlightOnly(query, view, current = word.first)
+    }
+
+    /** Highlight every match and remember the search for `n` / `N`, leaving the caret where it is. */
+    private fun highlightOnly(query: SearchQuery, view: TextView, current: Int): List<Effect> {
+        val matches = Search.findMatches(view.text, query.pattern, query.regex, query.ignoreCase).orEmpty()
+        state.lastSearch = query
+        state.searchVisible = true
+        val count = if (matches.size == 1) "1 match" else "${matches.size} matches"
+        return listOf(Effect.Highlight(matches, matches.indexOfFirst { it.start == current }), Effect.Message(count))
     }
 
     /**
@@ -539,12 +545,17 @@ class Engine(val state: SmivState = SmivState()) {
         return showNearest(matches, view, forward, firstAfter)
     }
 
-    /** `n` / `N`: next or previous match of the last search, counted from the caret; wraps around. */
-    private fun searchAgain(view: TextView, forward: Boolean): List<Effect> {
+    /** `n` / `N`, `3n` / `3N`: that many matches on from the caret in the last search; wraps around. */
+    private fun searchAgain(view: TextView, forward: Boolean, count: Int = 1): List<Effect> {
         val query = state.lastSearch ?: return emptyList()
         val matches = matchesOf(view.text, query.pattern, query.regex, query.ignoreCase) ?: return emptyList()
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))
-        return showNearest(matches, view, forward, view.caret + 1)
+        val nearest = if (forward) matches.indexOfFirst { it.start > view.caret } else matches.indexOfLast { it.start < view.caret }
+        val start = if (nearest >= 0) nearest else if (forward) matches.size else -1
+        val steps = if (forward) start + count - 1 else start - count + 1
+        val index = Math.floorMod(steps, matches.size)
+        val wrapped = steps !in matches.indices
+        return showMatch(matches, index) + listOfNotNull(Effect.Message("search wrapped").takeIf { wrapped })
     }
 
     private fun showNearest(matches: List<Match>, view: TextView, forward: Boolean, firstAfter: Int): List<Effect> {
@@ -733,12 +744,12 @@ class Engine(val state: SmivState = SmivState()) {
         return deleteRange(selectionStart(view), selectionEnd(view), view.text)
     }
 
-    /** `f` / `F`: search the character under the caret forward / backward (case-sensitive); `n` / `N` step. */
-    private fun searchChar(view: TextView, forward: Boolean): List<Effect> {
+    /** `f` / `F`: highlight the character under the caret (case-sensitive) without moving; `n` / `N` step. */
+    private fun searchChar(view: TextView): List<Effect> {
         state.replaceScope = null
         val char = view.text.getOrNull(view.caret)
         if (char == null || char == '\n') return listOf(Effect.Message("no character under caret"))
-        return search(SearchQuery(char.toString(), regex = false), view, forward)
+        return highlightOnly(SearchQuery(char.toString(), regex = false), view, current = view.caret)
     }
 
     /** Selection mode: surround the selection with [open] … [close] and leave selection mode. */
