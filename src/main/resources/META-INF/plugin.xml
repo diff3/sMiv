@@ -2,29 +2,7 @@
     <id>nu.entropy.smiv</id>
     <name>sMiv - Modal Editing</name>
     <vendor email="magnus@entropy.nu" url="https://github.com/diff3/sMiv">Magnus Pettersson</vendor>
-    <description><![CDATA[
-    <p>Lightweight modal editing for PhpStorm, based on
-    <a href="https://github.com/diff3/miv">MIV</a> for VS Code. Inspired by Vim, but not a Vim clone.</p>
-
-    <p><b>Modes.</b> <code>Esc</code> switches to NAV, where typed characters are commands and are never inserted;
-    every other key and shortcut works as usual. <code>i</code> or <code>Space</code> switch to INSERT for normal typing.
-    The status bar shows the mode and what you are typing; click it for the sMiv menu.</p>
-
-    <p><b>Main commands.</b></p>
-    <ul>
-      <li>Move: <code>w a s d</code>, <code>W A S D</code>, words <code>q e Q E</code>, <code>g m G</code>,
-          <code>-</code> / <code>_</code> first / last line in the block, <code>&lt;</code> / <code>&gt;</code> middle of line / document</li>
-      <li>Edit: <code>x</code> <code>b</code> delete, <code>c C</code> change, <code>r R</code> replace, <code>J K</code> move lines,
-          <code>u</code> undo, <code>U</code> revert to saved, <code>.</code> repeat</li>
-      <li>Yank and paste: <code>y p P</code>, registers <code>0</code>–<code>9</code> (<code>9</code> is the clipboard), viewer <code>V</code></li>
-      <li>Select: <code>v</code>, then motions or arrow keys</li>
-      <li>Search: <code>/text</code>, <code>f</code> / <code>*</code> for the character / word under the caret, <code>n N</code>;
-          replace: <code>=new</code> step by step, <code>==new</code> all</li>
-      <li>Text objects: <code>"y</code>, <code>(x</code>, <code>!p</code>; NAV keys can be changed in Settings → Tools → sMiv</li>
-    </ul>
-
-    <p>sMiv conflicts with IdeaVim, since both handle typing and Escape; use one of them at a time.</p>
-    ]]></description>
+    <!-- The description is FEATURES.md, added by the build (pluginConfiguration.description). -->
 
     <depends>com.intellij.modules.platform</depends>
     <!-- Loaded only when IdeaVim is enabled: warns that both plugins want the same keys. -->

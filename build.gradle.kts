@@ -47,6 +47,8 @@ intellijPlatform {
         id = "nu.entropy.smiv"
         name = "sMiv - Modal Editing"
         version = providers.gradleProperty("version")
+        // One English feature list: FEATURES.md is the plugin description and is copied into README.md.
+        description = providers.fileContents(layout.projectDirectory.file("FEATURES.md")).asText
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("sinceBuild")

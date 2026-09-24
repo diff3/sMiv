@@ -8,6 +8,9 @@
 - Numbered anchors: `3Z` sets anchor `3`, `3z` jumps to it.
 - `n` / `N` take a count: `3n` goes three matches on.
 - The register viewer stays open until you pick a register or press `Esc`.
+- Alt+Z / Alt+X show the same status message as `Z` / `z`.
+- A complete feature list: `FEATURES.md` (the plugin description and README) and `FEATURES.sv.md` in Swedish.
+- New plugin logo.
 
 ## 1.0.0 – 2026-09-24
 

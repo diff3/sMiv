@@ -1,6 +1,3 @@
-# sMiv
-
-<!-- FEATURES:START – a copy of FEATURES.md, which is also the plugin description. Edit FEATURES.md and copy it here. -->
 <p><b>sMiv</b> is modal editing for PhpStorm, based on <a href="https://github.com/diff3/miv">MIV</a> for VS Code: in NAV typed characters are commands, in INSERT you type as usual.</p>
 
 <h3>Getting started</h3>
@@ -125,44 +122,3 @@
   <li>Editors – sMiv works in code editors, not in consoles, commit messages or dialogs</li>
   <li>One mode – NAV and INSERT apply to all editors at once</li>
 </ul>
-<!-- FEATURES:END -->
-
-The full reference is [KEYMAP.md](src/main/resources/nu/entropy/smiv/KEYMAP.md), which the sMiv menu also opens. A Swedish version of this list is in [FEATURES.sv.md](FEATURES.sv.md).
-
-## Logo
-
-The plugin logo is `src/main/resources/META-INF/pluginIcon.svg` (light theme) and `pluginIcon_dark.svg` (dark theme),
-40×40 SVG.
-
-## Build
-
-The plugin description comes from `FEATURES.md` (see `build.gradle.kts`).
-
-
-The build uses PhpStorm's bundled JBR and the local PhpStorm installation as the platform:
-
-```bash
-export JAVA_HOME=/Applications/PhpStorm.app/Contents/jbr/Contents/Home
-./gradlew test          # core unit tests (no IDE needed)
-./gradlew runIde        # sandboxed PhpStorm with sMiv installed
-./gradlew verifyPlugin  # Plugin Verifier against the local PhpStorm
-./gradlew buildPlugin   # build/distributions/sMiv-<version>.zip
-```
-
-Install: Settings → Plugins → ⚙ → Install Plugin from Disk… → pick the zip → restart.
-
-## Layout
-
-- `core/` – pure Kotlin (parser, state, engine, `TextOps`, `Search`, `Tools`); unit tested.
-- `SmivService` – app-wide state, cursor shape, status updates.
-- `SmivInput` – raw typed handler, Escape/Enter handlers and the Alt shortcut actions.
-- `SmivEffects` – applies engine effects via Document/CaretModel/WriteCommandAction.
-- `SmivStatusBar` – status bar widget factory. The widget itself is `src/main/java/.../SmivStatusBarWidget.java`
-  (Java, so it does not inherit a deprecated API method).
-- `SmivStartup` – block cursor at startup and the IdeaVim warning.
-- `SmivPopups` – register viewer, sMiv menu, stats and KEYMAP views.
-- `SmivSettings` – custom NAV keys (Settings → Tools → sMiv).
-
-## License
-
-MIT, see [LICENSE](LICENSE).
