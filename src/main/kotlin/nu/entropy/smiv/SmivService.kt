@@ -89,9 +89,9 @@ class SmivService : Disposable {
 
     fun toNav(editor: Editor) = run(editor, DataContext.EMPTY_CONTEXT) { engine.escape() }
 
-    /** Register viewer from `v` or the sMiv menu. */
+    /** Register viewer from `V` or the sMiv menu. */
     fun showRegisters(editor: Editor) = run(editor, DataContext.EMPTY_CONTEXT) { view ->
-        engine.execute(Command(Action.SHOW_REGISTERS, sequence = "v"), view, ::readClipboard)
+        engine.execute(Command(Action.SHOW_REGISTERS, sequence = "V"), view, ::readClipboard)
     }
 
     /** A register chosen in the register viewer is pasted before the caret. */

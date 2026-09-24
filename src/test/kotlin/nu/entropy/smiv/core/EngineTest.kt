@@ -453,14 +453,14 @@ class EngineTest {
     }
 
     @Test
-    fun `digit v stores the clipboard in a register`() {
+    fun `digit V stores the clipboard in a register`() {
         clipboard = "saved\n"
-        val result = run("|a", "2v")
+        val result = run("|a", "2V")
         assertEquals(Register("saved\n", linewise = true), engine.state.registers[2])
         assertEquals(listOf("stored clipboard in register 2"), result.messages)
 
         clipboard = null
-        assertEquals(listOf("clipboard empty"), run("|a", "3v").messages)
+        assertEquals(listOf("clipboard empty"), run("|a", "3V").messages)
         assertEquals(Register(), engine.state.registers[3])
     }
 
@@ -716,13 +716,13 @@ class EngineTest {
     // ---- phase 4: register viewer, yank flash, stats ----
 
     @Test
-    fun `v shows the non-empty registers including the clipboard`() {
-        assertEquals(listOf("no registers yet"), run("|a", "v").messages)
+    fun `V shows the non-empty registers including the clipboard`() {
+        assertEquals(listOf("no registers yet"), run("|a", "V").messages)
         engine.state.registers[2] = Register("two")
         clipboard = "clip\n"
         assertEquals(
             Effect.ShowRegisters(listOf(2 to Register("two"), 9 to Register("clip\n", linewise = true))),
-            run("|a", "v").registersShown,
+            run("|a", "V").registersShown,
         )
     }
 
@@ -765,39 +765,39 @@ class EngineTest {
     // ---- selection mode ----
 
     @Test
-    fun `V selects with motions and x deletes the selection`() {
-        run("|foo bar baz", "V")
+    fun `v selects with motions and x deletes the selection`() {
+        run("|foo bar baz", "v")
         assertEquals(true, engine.isSelecting)
         engine.escape()
-        assertEquals(" baz", run("|foo bar baz", "Veex").text.replace("|", ""))
+        assertEquals(" baz", run("|foo bar baz", "veex").text.replace("|", ""))
         assertEquals(false, engine.isSelecting)
     }
 
     @Test
-    fun `V twice or escape ends selection mode`() {
-        run("|foo", "VV")
+    fun `v twice or escape ends selection mode`() {
+        run("|foo", "vv")
         assertEquals(false, engine.isSelecting)
-        run("|foo", "V")
+        run("|foo", "v")
         engine.escape()
         assertEquals(false, engine.isSelecting)
     }
 
     @Test
     fun `selection works with y, section sign, c and p`() {
-        run("|foo bar", "Vey")
+        run("|foo bar", "vey")
         assertEquals("foo", clipboard)
         // The caret stays where the motion left it.
-        assertEquals("FOO| bar", run("|foo bar", "Ve§").text)
-        assertEquals("| bar", run("|foo bar", "Vec").text)
+        assertEquals("FOO| bar", run("|foo bar", "ve§").text)
+        assertEquals("| bar", run("|foo bar", "vec").text)
         assertEquals(Mode.INSERT, engine.state.mode)
         engine.escape()
         clipboard = "X"
-        assertEquals("|X bar", run("|foo bar", "Vep").text)
+        assertEquals("|X bar", run("|foo bar", "vep").text)
     }
 
     @Test
     fun `selection mode keeps selecting over searches`() {
-        run("|a.b.a", "Vf")
+        run("|a.b.a", "vf")
         assertEquals(true, engine.isSelecting)
         assertEquals(0, engine.state.selectAnchor)
         assertEquals("|a", run("a.b.|a", "x").text)

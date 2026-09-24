@@ -71,7 +71,7 @@ class SmivEnterHandler(private val original: EditorActionHandler) : EditorAction
 }
 
 /**
- * Arrow keys in selection mode (`V`) extend the selection like `w a s d`; otherwise
+ * Arrow keys in selection mode (`v`) extend the selection like `w a s d`; otherwise
  * they work as usual.
  */
 class SmivArrowHandler(private val original: EditorActionHandler) : EditorActionHandler() {

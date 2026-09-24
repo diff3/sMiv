@@ -105,10 +105,10 @@ class ParserTest {
 
     @Test
     fun `digit v stores the clipboard`() {
-        assertEquals(Command(Action.STORE_REGISTER, sequence = "2v", register = 2), complete("2v"))
-        assertEquals(Action.SHOW_REGISTERS, complete("v").action)
-        invalid("0v")
-        invalid("12v")
+        assertEquals(Command(Action.STORE_REGISTER, sequence = "2V", register = 2), complete("2V"))
+        assertEquals(Action.SHOW_REGISTERS, complete("V").action)
+        invalid("0V")
+        invalid("12V")
     }
 
     @Test
@@ -160,7 +160,7 @@ class ParserTest {
 
     @Test
     fun `new single keys and text objects with delimiters`() {
-        assertEquals(Action.TOGGLE_SELECT, complete("V").action)
+        assertEquals(Action.TOGGLE_SELECT, complete("v").action)
         assertEquals(Action.SEARCH_WORD_FORWARD, complete("*").action)
         assertEquals(Action.SEARCH_WORD_BACKWARD, complete("#").action)
         assertEquals(Command(Action.MOVE_LINE_DOWN, 2, true, "2J"), complete("2J"))

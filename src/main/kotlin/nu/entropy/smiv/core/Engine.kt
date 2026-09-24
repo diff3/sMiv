@@ -56,7 +56,7 @@ class Engine(val state: SmivState = SmivState()) {
 
     val isCommandLineActive: Boolean get() = state.commandLine != null
 
-    /** Selection mode (`V`) is on. */
+    /** Selection mode (`v`) is on. */
     val isSelecting: Boolean get() = state.selectAnchor != null
 
     /** Enter is taken by sMiv (instead of inserting a line) when this is true. */
@@ -662,7 +662,7 @@ class Engine(val state: SmivState = SmivState()) {
     private fun selectionEnd(view: TextView) = maxOf(view.selectionStart, view.selectionEnd)
 
     /**
-     * `V`: start selecting from the caret (or keep an existing selection), or stop and
+     * `v`: start selecting from the caret (or keep an existing selection), or stop and
      * drop the selection. While on, motions extend the selection and `x y c § p`
      * act on it.
      */

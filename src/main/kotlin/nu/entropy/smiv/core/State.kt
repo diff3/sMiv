@@ -25,7 +25,7 @@ class SmivState {
 
     val stats = CommandStats()
 
-    /** Selection mode (`V`): the selection runs from here to the caret. */
+    /** Selection mode (`v`): the selection runs from here to the caret. */
     var selectAnchor: Int? = null
 
     /** Registers 0..8. Register 9 is the system clipboard itself, see [Engine]. */

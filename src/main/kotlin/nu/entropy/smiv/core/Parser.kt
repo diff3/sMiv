@@ -30,7 +30,7 @@ sealed interface ParseResult {
  * - `[count]key`, `r<char>`, `[count]f<char>`, `[count]F<char>`
  * - `-` / `_`, `[1-9]-` / `[1-9]_` (10–90 %) and `[10-99]-` / `[10-99]_` (that %) into the block
  * - `count ␠ register x|y` (for example `5 3x`), `register ␠ x|y` (for example `2 y`)
- * - `[register]p`, `[register]P`, `v`, `register v`
+ * - `[register]p`, `[register]P`, `V`, `register V`
  * - `g`, `[line]g`, `m` / `>`, `[1-9]m` (10–90 %), `[10-99]m` (that %), `G`, `[n]G`
  * - `<` middle of the line, `[1-9]<` / `[10-99]<` that far along it
  * - text objects: `!y`, `"x`, `(p`, `"Y`, `(X` or with a register `" 3y`

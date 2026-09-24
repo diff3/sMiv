@@ -35,7 +35,7 @@ object Keys {
     const val REPLACE_CHAR = 'r'
     const val PASTE_BEFORE = 'p'
     const val PASTE_AFTER = 'P'
-    const val STORE_REGISTER = 'v'
+    const val STORE_REGISTER = 'V'
     const val GOTO_LINE = 'g'
     const val DOC_MIDDLE = 'm'
     const val DOC_BOTTOM = 'G'
@@ -51,7 +51,7 @@ object Keys {
         REPLACE_CHAR to Action.REPLACE_CHAR,
     )
 
-    /** Commands that move the caret; in selection mode (`V`) they extend the selection. */
+    /** Commands that move the caret; in selection mode (`v`) they extend the selection. */
     val MOTIONS: Set<Action> = setOf(
         Action.LEFT, Action.RIGHT, Action.UP, Action.DOWN, Action.PAGE_UP, Action.PAGE_DOWN,
         Action.LINE_START, Action.LINE_END, Action.WORD_LEFT, Action.WORD_END_RIGHT,
@@ -128,7 +128,7 @@ object Keys {
         '.' to Action.REPEAT,
         'n' to Action.SEARCH_NEXT,
         'N' to Action.SEARCH_PREVIOUS,
-        'V' to Action.TOGGLE_SELECT,
+        'v' to Action.TOGGLE_SELECT,
         'f' to Action.SEARCH_CHAR_FORWARD,
         'F' to Action.SEARCH_CHAR_BACKWARD,
         '*' to Action.SEARCH_WORD_FORWARD,
@@ -204,11 +204,11 @@ class KeyLayout(overrides: Map<String, Char> = emptyMap()) {
             KeyBinding("YANK_WORD", 'Y', "Yank word"),
             KeyBinding("PASTE_AFTER", 'p', "Paste before the caret"),
             KeyBinding("PASTE_BEFORE", 'P', "Paste after the caret"),
-            KeyBinding("SHOW_REGISTERS", 'v', "Register viewer / store clipboard"),
+            KeyBinding("SHOW_REGISTERS", 'V', "Register viewer / store clipboard"),
             KeyBinding("UNDO", 'u', "Undo"),
             KeyBinding("REVERT_TO_SAVED", 'U', "Revert to saved version"),
             KeyBinding("REPEAT_ALIAS", '.', "Repeat"),
-            KeyBinding("TOGGLE_SELECT", 'V', "Selection mode"),
+            KeyBinding("TOGGLE_SELECT", 'v', "Selection mode"),
             KeyBinding("SEARCH_CHAR_FORWARD", 'f', "Search character under caret forward"),
             KeyBinding("SEARCH_CHAR_BACKWARD", 'F', "Search character under caret backward"),
             KeyBinding("SEARCH_WORD_FORWARD", '*', "Search word under caret forward"),

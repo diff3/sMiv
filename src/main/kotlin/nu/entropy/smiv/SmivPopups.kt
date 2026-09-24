@@ -19,7 +19,7 @@ object SmivPopups {
     private const val REGISTER_VIEWER_TIMEOUT_MS = 2000
 
     /**
-     * `v`: list the non-empty registers. Typing a digit or choosing a row pastes that
+     * `V`: list the non-empty registers. Typing a digit or choosing a row pastes that
      * register before the caret.
      */
     fun showRegisters(editor: Editor, registers: List<Pair<Int, Register>>) {
