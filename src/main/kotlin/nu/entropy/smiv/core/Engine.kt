@@ -540,7 +540,7 @@ class Engine(val state: SmivState = SmivState()) {
     }
 
     /** `n` / `N`, `3n` / `3N`: that many matches on from the caret in the last search; wraps around. */
-    private fun searchAgain(view: TextView, forward: Boolean, count: Int = 1): List<Effect> {
+    private fun searchAgain(view: TextView, forward: Boolean, count: Int): List<Effect> {
         val query = state.lastSearch ?: return emptyList()
         val matches = matchesOf(view.text, query.pattern, query.regex, query.ignoreCase) ?: return emptyList()
         if (matches.isEmpty()) return listOf(Effect.Message("not found: ${query.pattern}"))

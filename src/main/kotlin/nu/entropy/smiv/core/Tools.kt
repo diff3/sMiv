@@ -5,8 +5,7 @@ package nu.entropy.smiv.core
  * are the same place.
  */
 class Anchors<T>(private val same: (T, T) -> Boolean) {
-    var anchor: T? = null
-        private set
+    private var anchor: T? = null
     private var jumpedFrom: T? = null
 
     /** Alt+Z: set the anchor and forget where we jumped from. */

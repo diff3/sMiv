@@ -110,7 +110,7 @@ object Search {
         return if (parts.size in 1..2 && i == input.length) parts else null
     }
 
-    private fun compile(pattern: String, ignoreCase: Boolean = false): Regex? = try {
+    private fun compile(pattern: String, ignoreCase: Boolean): Regex? = try {
         if (ignoreCase) Regex(pattern, RegexOption.IGNORE_CASE) else Regex(pattern)
     } catch (_: PatternSyntaxException) {
         null

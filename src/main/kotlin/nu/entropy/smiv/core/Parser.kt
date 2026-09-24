@@ -52,10 +52,7 @@ object Parser {
         Keys.CHAR_ARGUMENT_KEYS[rest[0]]?.let { action ->
             return when (rest.length) {
                 1 -> ParseResult.Partial
-                2 -> {
-                    val count = if (action.countable && digits.isNotEmpty()) parseNumber(digits).coerceAtMost(MAX_COUNT) else 1
-                    complete(Command(action, count, digits.isNotEmpty(), buffer, char = rest[1]))
-                }
+                2 -> complete(Command(action, explicitCount = digits.isNotEmpty(), sequence = buffer, char = rest[1]))
                 else -> ParseResult.Invalid
             }
         }
