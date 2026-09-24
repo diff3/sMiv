@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 – 2026-09-24
 
 - `"c`, `(c`, `!c` … empty a text object and enter INSERT (`( 3c` stores the old text in register `3`).
 - In selection mode `(`, `[`, `{`, `"`, `'`, `` ` `` and `´` wrap the selection.
